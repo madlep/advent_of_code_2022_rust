@@ -1,12 +1,7 @@
-use aoc2022::days::day1;
-use std::fs::File;
-use std::io::prelude::*;
 use std::path::PathBuf;
 
+use aoc2022::days::{Day, Part};
 use clap::Parser;
-
-type Day = u8;
-type Part = u8;
 
 #[derive(Parser)]
 struct Cli {
@@ -21,17 +16,21 @@ struct Cli {
 }
 
 fn main() -> std::io::Result<()> {
-    let args = Cli::parse();
+    let (day, part, file_path) = parse_args();
 
-    let day = args.day;
-    let part = args.part;
-    let file_path = build_file_path(args.file, day);
+    let output = aoc2022::run(day, part, file_path)?;
 
-    let data = load_data(file_path)?;
-    let output = run_day_part(day, part, data);
     println!("{}", output);
 
     Ok(())
+}
+
+fn parse_args() -> (Day, Part, PathBuf) {
+    let args = Cli::parse();
+    let day = args.day;
+    let part = args.part;
+    let file_path = build_file_path(args.file, day);
+    (day, part, file_path)
 }
 
 fn build_file_path(file_path_arg: Option<PathBuf>, day: Day) -> PathBuf {
@@ -40,20 +39,5 @@ fn build_file_path(file_path_arg: Option<PathBuf>, day: Day) -> PathBuf {
     } else {
         let day_file_name = format!("day{:02}.txt", day);
         ["./data", day_file_name.as_str()].iter().collect()
-    }
-}
-
-fn load_data(file_path: PathBuf) -> Result<String, std::io::Error> {
-    let mut file = File::open(file_path)?;
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
-    Ok(data)
-}
-
-fn run_day_part(day: Day, part: Part, data: String) -> String {
-    match (day, part) {
-        (1, 1) => day1::part1(data),
-        (1, 2) => day1::part2(data),
-        (day_m, part_m) => panic!("Day {}, part {} is not implemented", day_m, part_m),
     }
 }
