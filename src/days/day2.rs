@@ -144,8 +144,8 @@ mod tests {
     #[test]
     fn it_calcultes_part1_given_example() {
         let data = "A Y \n\
-        B X \n\
-        C Z ";
+                    B X \n\
+                    C Z ";
         let result = part1(data.to_string());
         assert_eq!(result, "15");
     }
@@ -153,8 +153,8 @@ mod tests {
     #[test]
     fn it_calcultes_part2_given_example() {
         let data = "A Y \n\
-        B X \n\
-        C Z ";
+                    B X \n\
+                    C Z ";
         let result = part2(data.to_string());
         assert_eq!(result, "12");
     }
