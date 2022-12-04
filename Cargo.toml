@@ -8,3 +8,5 @@ default-run = "aoc"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
+regex = { version = "1.7.0" }
+lazy_static = { version = "1.4.0" }
