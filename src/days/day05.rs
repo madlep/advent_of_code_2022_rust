@@ -1,16 +1,24 @@
 pub fn part1(data: String) -> String {
     let mut lines = data.lines();
     let mut stacks = parse_header(&mut lines);
-    run_instructions(&mut stacks, &mut lines);
+    run_instructions(&mut stacks, &mut lines, &Crane::KrateMover9000);
     stacks.head_krates()
 }
 
-pub fn part2(_data: String) -> String {
-    "foobar".to_string()
+pub fn part2(data: String) -> String {
+    let mut lines = data.lines();
+    let mut stacks = parse_header(&mut lines);
+    run_instructions(&mut stacks, &mut lines, &Crane::KrateMover9001);
+    stacks.head_krates()
 }
 
 type Krate = char;
 type StackName = char;
+
+enum Crane {
+    KrateMover9000,
+    KrateMover9001,
+}
 
 #[derive(Debug, PartialEq)]
 struct Stacks {
@@ -34,11 +42,21 @@ impl Stacks {
         self.stack_map.get_mut(&stack_name).unwrap().push(*krate);
     }
 
-    fn move_krates(&mut self, from_stack: &StackName, to_stack: &StackName, amount: usize) {
+    fn move_krates(
+        &mut self,
+        from_stack: &StackName,
+        to_stack: &StackName,
+        amount: usize,
+        crane: &Crane,
+    ) {
         let from = self.stack_map.get_mut(from_stack).unwrap();
 
         let mut popped = from.split_off(from.len() - amount);
-        popped.reverse();
+
+        match crane {
+            Crane::KrateMover9000 => popped.reverse(),
+            Crane::KrateMover9001 => (), // no-op already in correct order
+        }
 
         self.stack_map
             .get_mut(to_stack)
@@ -93,10 +111,11 @@ fn parse_header<'a>(lines: &mut impl Iterator<Item = &'a str>) -> Stacks {
 fn run_instructions<'a>(
     stacks: &'a mut Stacks,
     lines: &mut impl Iterator<Item = &'a str>,
+    crane: &Crane,
 ) -> &'a mut Stacks {
     for line in lines {
         let (_rest, (amount, (from_stack, to_stack))) = parse_instruction(line).unwrap();
-        stacks.move_krates(&from_stack, &to_stack, amount as usize);
+        stacks.move_krates(&from_stack, &to_stack, amount as usize, crane);
     }
     stacks
 }
@@ -177,7 +196,7 @@ move 1 from 1 to 2";
     }
 
     #[test]
-    fn it_moves_krates() {
+    fn it_moves_krates_part1() {
         let mut stacks = Stacks {
             stack_names: vec!['1', '2', '3'],
             stack_map: HashMap::from([
@@ -187,7 +206,7 @@ move 1 from 1 to 2";
             ]),
         };
 
-        stacks.move_krates(&'2', &'3', 2);
+        stacks.move_krates(&'2', &'3', 2, &Crane::KrateMover9000);
         assert_eq!(
             stacks,
             Stacks {
@@ -200,7 +219,7 @@ move 1 from 1 to 2";
             }
         );
 
-        stacks.move_krates(&'3', &'1', 3);
+        stacks.move_krates(&'3', &'1', 3, &Crane::KrateMover9000);
         assert_eq!(
             stacks,
             Stacks {
