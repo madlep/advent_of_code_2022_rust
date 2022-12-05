@@ -1,14 +1,15 @@
 pub fn part1(data: String) -> String {
-    let mut lines = data.lines();
-    let mut stacks = parse_header(&mut lines);
-    run_instructions(&mut stacks, &mut lines, &Crane::KrateMover9000);
-    stacks.head_krates()
+    run(data, &Crane::KrateMover9000)
 }
 
 pub fn part2(data: String) -> String {
+    run(data, &Crane::KrateMover9001)
+}
+
+fn run(data: String, crane: &Crane) -> String {
     let mut lines = data.lines();
     let mut stacks = parse_header(&mut lines);
-    run_instructions(&mut stacks, &mut lines, &Crane::KrateMover9001);
+    run_instructions(&mut stacks, &mut lines, crane);
     stacks.head_krates()
 }
 
