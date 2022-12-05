@@ -46,12 +46,12 @@ impl Stacks {
         &mut self,
         from_stack: &StackName,
         to_stack: &StackName,
-        amount: usize,
+        amount: u32,
         crane: &Crane,
     ) {
         let from = self.stack_map.get_mut(from_stack).unwrap();
 
-        let mut popped = from.split_off(from.len() - amount);
+        let mut popped = from.split_off(from.len() - amount as usize);
 
         match crane {
             Crane::KrateMover9000 => popped.reverse(),
@@ -76,17 +76,15 @@ impl Stacks {
 
 use std::collections::HashMap;
 
-use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::anychar;
-use nom::character::complete::char;
-use nom::character::complete::u32;
-use nom::combinator::map;
-use nom::multi::separated_list0;
-use nom::sequence::delimited;
-use nom::sequence::preceded;
-use nom::sequence::separated_pair;
-use nom::IResult;
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{anychar, char, u32},
+    combinator::map,
+    multi::separated_list0,
+    sequence::{delimited, preceded, separated_pair},
+    IResult,
+};
 
 fn parse_header<'a>(lines: &mut impl Iterator<Item = &'a str>) -> Stacks {
     let mut header_lines = lines
@@ -114,8 +112,8 @@ fn run_instructions<'a>(
     crane: &Crane,
 ) -> &'a mut Stacks {
     for line in lines {
-        let (_rest, (amount, (from_stack, to_stack))) = parse_instruction(line).unwrap();
-        stacks.move_krates(&from_stack, &to_stack, amount as usize, crane);
+        let (amount, (from_stack, to_stack)) = parse_instruction(line);
+        stacks.move_krates(&from_stack, &to_stack, amount, crane);
     }
     stacks
 }
@@ -133,10 +131,13 @@ fn parse_header_stack_line(input: &str) -> IResult<&str, Vec<Option<Krate>>> {
     separated_list0(char(' '), position_parser)(input)
 }
 
-fn parse_instruction(input: &str) -> IResult<&str, (u32, (StackName, StackName))> {
+fn parse_instruction(input: &str) -> (u32, (StackName, StackName)) {
     let stacks_parser = separated_pair(anychar, tag(" to "), anychar);
     let ins_parser = separated_pair(u32, tag(" from "), stacks_parser);
-    preceded(tag("move "), ins_parser)(input)
+    let result: IResult<&str, (u32, (StackName, StackName))> =
+        preceded(tag("move "), ins_parser)(input);
+    let (_rest, ins) = result.unwrap();
+    ins
 }
 
 #[cfg(test)]
@@ -156,6 +157,21 @@ move 2 from 2 to 1
 move 1 from 1 to 2";
         let result = part1(data.to_string());
         assert_eq!(result, "CMZ");
+    }
+
+    #[test]
+    fn it_calcultes_part2_given_example() {
+        let data = "    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2";
+        let result = part2(data.to_string());
+        assert_eq!(result, "MCD");
     }
 
     #[test]
@@ -182,17 +198,11 @@ move 1 from 1 to 2";
 [N] [C]    
 [Z] [M] [P]
  1   2   3 ";
-        assert_eq!(
-            parse_header(&mut data.lines()),
-            Stacks {
-                stack_names: vec!['1', '2', '3'],
-                stack_map: HashMap::from([
-                    ('1', vec!['Z', 'N']),
-                    ('2', vec!['M', 'C', 'D']),
-                    ('3', vec!['P'])
-                ])
-            }
-        );
+        let header = parse_header(&mut data.lines());
+        assert_eq!(header.stack_names, vec!['1', '2', '3']);
+        assert_eq!(header.stack_map.get(&'1').unwrap(), &vec!['Z', 'N']);
+        assert_eq!(header.stack_map.get(&'2').unwrap(), &vec!['M', 'C', 'D']);
+        assert_eq!(header.stack_map.get(&'3').unwrap(), &vec!['P']);
     }
 
     #[test]
@@ -207,39 +217,46 @@ move 1 from 1 to 2";
         };
 
         stacks.move_krates(&'2', &'3', 2, &Crane::KrateMover9000);
-        assert_eq!(
-            stacks,
-            Stacks {
-                stack_names: vec!['1', '2', '3'],
-                stack_map: HashMap::from([
-                    ('1', vec!['Z', 'N']),
-                    ('2', vec!['M']),
-                    ('3', vec!['P', 'D', 'C']),
-                ]),
-            }
-        );
+        assert_eq!(stacks.stack_map.get(&'2').unwrap(), &vec!['M']);
+        assert_eq!(stacks.stack_map.get(&'3').unwrap(), &vec!['P', 'D', 'C']); // D/C reverses order
 
         stacks.move_krates(&'3', &'1', 3, &Crane::KrateMover9000);
+        assert!(stacks.stack_map.get(&'3').unwrap().is_empty());
         assert_eq!(
-            stacks,
-            Stacks {
-                stack_names: vec!['1', '2', '3'],
-                stack_map: HashMap::from([
-                    ('1', vec!['Z', 'N', 'C', 'D', 'P']),
-                    ('2', vec!['M']),
-                    ('3', vec![]),
-                ]),
-            }
+            stacks.stack_map.get(&'1').unwrap(),
+            &vec!['Z', 'N', 'C', 'D', 'P'] // C/D/P reverses order
+        );
+    }
+
+    #[test]
+    fn it_moves_krates_part2() {
+        let mut stacks = Stacks {
+            stack_names: vec!['1', '2', '3'],
+            stack_map: HashMap::from([
+                ('1', vec!['Z', 'N']),
+                ('2', vec!['M', 'C', 'D']),
+                ('3', vec!['P']),
+            ]),
+        };
+
+        stacks.move_krates(&'2', &'3', 2, &Crane::KrateMover9001);
+        assert_eq!(stacks.stack_map.get(&'2').unwrap(), &vec!['M']);
+        assert_eq!(stacks.stack_map.get(&'3').unwrap(), &vec!['P', 'C', 'D']); // C/D keeps order
+
+        stacks.move_krates(&'3', &'1', 3, &Crane::KrateMover9001);
+        assert!(stacks.stack_map.get(&'3').unwrap().is_empty());
+        assert_eq!(
+            stacks.stack_map.get(&'1').unwrap(),
+            &vec!['Z', 'N', 'P', 'C', 'D'] // P/C/D keeps order
         );
     }
 
     #[test]
     fn it_parses_stacks_move_instruction() {
         let ins = "move 15 from 7 to 9";
-        let (rest, (mv_number, (from, to))) = parse_instruction(ins).unwrap();
-        assert_eq!(rest, "");
-        assert_eq!(mv_number, 15);
-        assert_eq!(from, '7');
-        assert_eq!(to, '9');
+        let (amount, (from_stack, to_stack)) = parse_instruction(ins);
+        assert_eq!(amount, 15);
+        assert_eq!(from_stack, '7');
+        assert_eq!(to_stack, '9');
     }
 }
