@@ -93,11 +93,11 @@ fn parse_header<'a>(lines: &mut impl Iterator<Item = &'a str>) -> Stacks {
         .collect::<Vec<&str>>();
     header_lines.reverse();
 
-    let (_rest, stack_names) = parse_stack_names(header_lines[0]).unwrap();
+    let stack_names = parse_stack_names(header_lines[0]);
     let mut stacks = Stacks::new(stack_names.clone());
 
     for line in header_lines[1..header_lines.len()].iter() {
-        let (_rest, krates) = parse_header_stack_line(line).unwrap();
+        let krates = parse_header_stack_line(line);
         for (stack_name, krate) in stack_names.iter().zip(krates.iter()) {
             if let Some(k) = krate {
                 stacks.add_krate(stack_name, k);
@@ -119,17 +119,22 @@ fn run_instructions<'a>(
     stacks
 }
 
-fn parse_stack_names(input: &str) -> IResult<&str, Vec<StackName>> {
+fn parse_stack_names(input: &str) -> Vec<StackName> {
     let label_parser = delimited(char(' '), anychar, char(' '));
-    separated_list0(char(' '), label_parser)(input)
+    let mut stack_names_parser = separated_list0(char(' '), label_parser);
+    let result: IResult<&str, Vec<StackName>> = stack_names_parser(input);
+    let (_rest, stack_names) = result.unwrap();
+    stack_names
 }
 
-fn parse_header_stack_line(input: &str) -> IResult<&str, Vec<Option<Krate>>> {
+fn parse_header_stack_line(input: &str) -> Vec<Option<Krate>> {
     let krate_parser = map(delimited(char('['), anychar, char(']')), |c| Some(c));
     let placeholder_parser = map(tag("   "), |_| None);
     let position_parser = alt((krate_parser, placeholder_parser));
-
-    separated_list0(char(' '), position_parser)(input)
+    let mut krates_parser = separated_list0(char(' '), position_parser);
+    let result: IResult<&str, Vec<Option<Krate>>> = krates_parser(input);
+    let (_rest, krates) = result.unwrap();
+    krates
 }
 
 fn parse_instruction(input: &str) -> (u32, (StackName, StackName)) {
@@ -178,18 +183,15 @@ move 1 from 1 to 2";
     #[test]
     fn it_parses_stack_names() {
         let labels = " 1   2   3 ";
-        assert_eq!(
-            parse_stack_names(labels).unwrap(),
-            ("", vec!['1', '2', '3'])
-        );
+        assert_eq!(parse_stack_names(labels), vec!['1', '2', '3']);
     }
 
     #[test]
     fn it_parses_header_stack_line() {
         let stack_line = "    [D]    "; // empty/stack/empty
         assert_eq!(
-            parse_header_stack_line(stack_line).unwrap(),
-            ("", vec![None, Some('D'), None])
+            parse_header_stack_line(stack_line),
+            vec![None, Some('D'), None]
         )
     }
 
