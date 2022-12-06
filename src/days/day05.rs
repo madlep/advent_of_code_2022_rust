@@ -151,36 +151,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_calcultes_part1_given_example() {
-        let data = "    [D]    
-[N] [C]    
-[Z] [M] [P]
- 1   2   3 
-
-move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2";
-        let result = part1(data.to_string());
-        assert_eq!(result, "CMZ");
-    }
-
-    #[test]
-    fn it_calcultes_part2_given_example() {
-        let data = "    [D]    
-[N] [C]    
-[Z] [M] [P]
- 1   2   3 
-
-move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2";
-        let result = part2(data.to_string());
-        assert_eq!(result, "MCD");
-    }
-
-    #[test]
     fn it_parses_stack_names() {
         let labels = " 1   2   3 ";
         assert_eq!(parse_stack_names(labels), vec!['1', '2', '3']);

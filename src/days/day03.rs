@@ -78,30 +78,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_calcultes_part1_given_example() {
-        let data = "vJrwpWtwJgWrhcsFMMfFFhFp\n\
-                    jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL\n\
-                    PmmdzqPrVvPwwTWBwg\n\
-                    wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn\n\
-                    ttgJtRGJQctTZtZT\n\
-                    CrZsJsPPZsGzwwsLwLmpwMDw";
-        let result = part1(data.to_string());
-        assert_eq!(result, "157");
-    }
-
-    #[test]
-    fn it_calcultes_part2_given_example() {
-        let data = "vJrwpWtwJgWrhcsFMMfFFhFp\n\
-                    jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL\n\
-                    PmmdzqPrVvPwwTWBwg\n\
-                    wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn\n\
-                    ttgJtRGJQctTZtZT\n\
-                    CrZsJsPPZsGzwwsLwLmpwMDw";
-        let result = part2(data.to_string());
-        assert_eq!(result, "70");
-    }
-
-    #[test]
     fn it_parses_line() {
         let line = "vJrwpWtwJgWrhcsFMMfFFhFp";
         let compartment1 = "vJrwpWtwJgWr";

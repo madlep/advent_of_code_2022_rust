@@ -142,24 +142,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_calcultes_part1_given_example() {
-        let data = "A Y \n\
-                    B X \n\
-                    C Z ";
-        let result = part1(data.to_string());
-        assert_eq!(result, "15");
-    }
-
-    #[test]
-    fn it_calcultes_part2_given_example() {
-        let data = "A Y \n\
-                    B X \n\
-                    C Z ";
-        let result = part2(data.to_string());
-        assert_eq!(result, "12");
-    }
-
-    #[test]
     fn it_calcualtes_score() {
         // wins
         assert_eq!(Round::new(Scissors, Rock).score(), 6 + 1);

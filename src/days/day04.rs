@@ -58,30 +58,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_calcultes_part1_given_example() {
-        let data = "2-4,6-8\n\
-                    2-3,4-5\n\
-                    5-7,7-9\n\
-                    2-8,3-7\n\
-                    6-6,4-6\n\
-                    2-6,4-8";
-        let result = part1(data.to_string());
-        assert_eq!(result, "2");
-    }
-
-    #[test]
-    fn it_calcultes_part2_given_example() {
-        let data = "2-4,6-8\n\
-                    2-3,4-5\n\
-                    5-7,7-9\n\
-                    2-8,3-7\n\
-                    6-6,4-6\n\
-                    2-6,4-8";
-        let result = part2(data.to_string());
-        assert_eq!(result, "4");
-    }
-
-    #[test]
     fn it_parses_input_line() {
         assert_eq!(parse_line(&"2-4,6-8"), (2..=4, 6..=8))
     }
