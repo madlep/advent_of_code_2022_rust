@@ -1,7 +1,18 @@
 use std::cmp;
 
 pub fn part1(data: String) -> String {
-    let mut trees: Vec<Vec<Tree>> = vec![];
+    let mut trees = parse_trees(&data);
+    build_trees_visibility(&mut trees);
+
+    trees.iter().filter(|t| t.is_visible()).count().to_string()
+}
+
+pub fn part2(_data: String) -> String {
+    panic!("not implemented");
+}
+
+fn parse_trees(data: &str) -> Trees {
+    let mut trees = Trees::new();
 
     for (y, line) in data.lines().enumerate() {
         let mut tree_row: Vec<Tree> = vec![];
@@ -10,22 +21,24 @@ pub fn part1(data: String) -> String {
                 c @ '0'..='9' => c as i8 - '0' as i8,
                 e => panic!("bad height found: {}", e),
             };
-            let tree = Tree::new(h, Coord(x, y));
+            let tree = Tree::new(h, Coord { x, y });
             tree_row.push(tree);
         }
-        trees.push(tree_row);
+        trees.append_row(tree_row);
     }
-    let height = trees.len();
-    let width = trees[0].len();
 
+    trees
+}
+
+fn build_trees_visibility(trees: &mut Trees) -> () {
     // calc vis by walking from dir setting req vis on each tree to be max of previous in that row
 
     // walk from north,
     {
-        let mut north_vis = vec![-1; width];
-        for y in 0..height {
-            for x in 0..width {
-                let tree = &mut trees[y][x];
+        let mut north_vis = vec![-1; trees.width];
+        for y in 0..trees.height {
+            for x in 0..trees.width {
+                let tree = &mut trees.get_mut(Coord { x, y });
                 tree.vis.n = north_vis[x];
                 north_vis[x] = cmp::max(north_vis[x], tree.h);
             }
@@ -34,10 +47,10 @@ pub fn part1(data: String) -> String {
 
     // walk from east,
     {
-        let mut east_vis = vec![-1; height];
-        for x in (0..width).rev() {
-            for y in 0..height {
-                let tree = &mut trees[y][x];
+        let mut east_vis = vec![-1; trees.height];
+        for x in (0..trees.width).rev() {
+            for y in 0..trees.height {
+                let tree = &mut trees.get_mut(Coord { x, y });
                 tree.vis.e = east_vis[y];
                 east_vis[y] = cmp::max(east_vis[y], tree.h);
             }
@@ -46,10 +59,10 @@ pub fn part1(data: String) -> String {
 
     // walk from west,
     {
-        let mut west_vis = vec![-1; height];
-        for x in 0..width {
-            for y in 0..height {
-                let tree = &mut trees[y][x];
+        let mut west_vis = vec![-1; trees.height];
+        for x in 0..trees.width {
+            for y in 0..trees.height {
+                let tree = &mut trees.get_mut(Coord { x, y });
                 tree.vis.w = west_vis[y];
                 west_vis[y] = cmp::max(west_vis[y], tree.h);
             }
@@ -58,29 +71,62 @@ pub fn part1(data: String) -> String {
 
     // walk from south,
     {
-        let mut south_vis = vec![-1; width];
-        for y in (0..height).rev() {
-            for x in 0..width {
-                let tree = &mut trees[y][x];
+        let mut south_vis = vec![-1; trees.width];
+        for y in (0..trees.height).rev() {
+            for x in 0..trees.width {
+                let tree = &mut trees.get_mut(Coord { x, y });
                 tree.vis.s = south_vis[x];
                 south_vis[x] = cmp::max(south_vis[x], tree.h);
             }
         }
     }
-
-    let mut visible_count = 0_u32;
-    for tree_line in trees {
-        for tree in tree_line {
-            if tree.is_visible() {
-                visible_count += 1;
-            }
-        }
-    }
-    visible_count.to_string()
 }
 
-pub fn part2(_data: String) -> String {
-    panic!("not implemented");
+struct Trees {
+    trees: Vec<Tree>,
+    width: usize,
+    height: usize,
+}
+
+impl Trees {
+    fn new() -> Self {
+        Trees {
+            trees: vec![],
+            width: 0,
+            height: 0,
+        }
+    }
+
+    fn append_row(&mut self, mut row: Vec<Tree>) -> () {
+        if self.width == 0 {
+            // first row, set width and expect subsequent to be equal
+            self.width = row.len();
+        } else {
+            if self.width != row.len() {
+                panic!("Expected row size: {} got: {}", self.width, row.len());
+            }
+        }
+        self.height += 1;
+        self.trees.append(&mut row);
+    }
+
+    fn get_mut(&mut self, coord: Coord) -> &mut Tree {
+        let i = coord.y * self.width + coord.x;
+        &mut self.trees[i]
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &Tree> {
+        self.trees.iter()
+    }
+}
+
+impl IntoIterator for Trees {
+    type Item = Tree;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.trees.into_iter()
+    }
 }
 
 #[derive(Debug)]
@@ -120,5 +166,9 @@ struct Visibilities {
     w: Vis,
     s: Vis,
 }
+
 #[derive(Debug)]
-struct Coord(usize, usize);
+struct Coord {
+    x: usize,
+    y: usize,
+}
