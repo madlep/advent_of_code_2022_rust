@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::u32,
+    character::complete::{u128, u32},
     combinator::map,
     multi::separated_list0,
     sequence::{preceded, separated_pair, terminated, tuple},
@@ -12,25 +12,39 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 pub fn part1(data: String) -> String {
-    let monkeys = parse(&data);
     let rounds = 20;
-    for _ in 1..=rounds {
+    let boredom_factor = 3;
+    run(&data, rounds, boredom_factor).to_string()
+}
+
+pub fn part2(data: String) -> String {
+    let rounds = 10_000;
+    let boredom_factor = 1;
+    run(&data, rounds, boredom_factor).to_string()
+}
+
+fn run(data: &str, rounds: u32, boredom_factor: u32) -> u64 {
+    let monkeys = parse(&data);
+    let lcm: u128 = monkeys
+        .iter()
+        .map(|m| m.borrow().test.divisible_by as u128)
+        .product();
+
+    for _i in 1..=rounds {
         for monkey in monkeys.iter() {
-            monkey.borrow_mut().inspect_and_throw_items(&monkeys);
+            monkey
+                .borrow_mut()
+                .inspect_and_throw_items(&monkeys, boredom_factor, lcm);
         }
     }
 
     let mut inspection_counts = monkeys
         .iter()
-        .map(|m| m.borrow().inspection_count)
-        .collect::<Vec<u32>>();
+        .map(|m| m.borrow().inspection_count as u64)
+        .collect::<Vec<u64>>();
     inspection_counts.sort();
     inspection_counts.reverse();
-    inspection_counts[0..=1].iter().product::<u32>().to_string()
-}
-
-pub fn part2(_data: String) -> String {
-    panic!("not implemented")
+    inspection_counts[0..=1].iter().product::<u64>()
 }
 
 #[derive(Debug, PartialEq)]
@@ -50,18 +64,27 @@ impl Monkey {
         }
     }
 
-    fn inspect_and_throw_items(&mut self, monkeys: &Vec<Rc<RefCell<Monkey>>>) -> () {
+    fn inspect_and_throw_items(
+        &mut self,
+        monkeys: &Vec<Rc<RefCell<Monkey>>>,
+        boredom_factor: u32,
+        lcm: u128,
+    ) -> () {
         while let Some(item) = self.items.pop_front() {
             self.inspection_count += 1;
-            let item = self.op.call(item);
-            let item = Monkey::bored_with_item(item);
-            let throw_to = self.test.check(item);
+            let item = self.op.call(&item, lcm);
+            let item = Monkey::bored_with_item(item, boredom_factor);
+            let throw_to = self.test.check(&item);
             monkeys[throw_to].borrow_mut().catch(item);
         }
     }
 
-    fn bored_with_item(item: Item) -> Item {
-        item / 3
+    fn bored_with_item(item: Item, boredom_factor: u32) -> Item {
+        if boredom_factor == 1 {
+            item
+        } else {
+            item / (boredom_factor as u128)
+        }
     }
 
     fn catch(&mut self, item: Item) -> () {
@@ -71,7 +94,7 @@ impl Monkey {
 
 type MonkeyId = usize;
 
-type Item = u32;
+type Item = u128;
 
 #[derive(Debug, PartialEq)]
 enum Op {
@@ -81,12 +104,13 @@ enum Op {
 }
 
 impl Op {
-    fn call(&self, item: Item) -> Item {
-        match self {
-            Op::Mult(n) => item * n,
-            Op::Plus(n) => item + n,
+    fn call(&self, item: &Item, lcm: u128) -> Item {
+        let calc = match self {
+            Op::Mult(n) => item * (*n as u128),
+            Op::Plus(n) => item + (*n as u128),
             Op::Sq => item * item,
-        }
+        };
+        calc % lcm
     }
 }
 
@@ -106,8 +130,8 @@ impl Test {
         }
     }
 
-    fn check(&self, item: Item) -> MonkeyId {
-        if item % self.divisible_by == 0 {
+    fn check(&self, item: &Item) -> MonkeyId {
+        if item % (self.divisible_by as u128) == 0 {
             self.true_throw
         } else {
             self.false_throw
@@ -139,7 +163,8 @@ fn monkey_parser(input: &str) -> IResult<&str, Rc<RefCell<Monkey>>> {
 }
 
 fn items_parser(input: &str) -> IResult<&str, Vec<Item>> {
-    preceded(tag("  Starting items: "), separated_list0(tag(", "), u32))(input)
+    let mut p = preceded(tag("  Starting items: "), separated_list0(tag(", "), u128));
+    p(input)
 }
 
 fn operation_parser(input: &str) -> IResult<&str, Op> {

@@ -1,8 +1,6 @@
 use aoc2022::days::day11::{part1, part2};
 
-#[test]
-fn part1_example_data() {
-    let data = "\
+const DATA: &str = "\
 Monkey 0:
   Starting items: 79, 98
   Operation: new = old * 19
@@ -30,11 +28,13 @@ Monkey 3:
   Test: divisible by 17
     If true: throw to monkey 0
     If false: throw to monkey 1";
-    assert_eq!(part1(data.to_string()), "10605");
+
+#[test]
+fn part1_example_data() {
+    assert_eq!(part1(DATA.to_string()), "10605");
 }
 
 #[test]
 fn part2_example_data() {
-    let data = "";
-    assert_eq!(part2(data.to_string()), "fail");
+    assert_eq!(part2(DATA.to_string()), "2713310158");
 }
