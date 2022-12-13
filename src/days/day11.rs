@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{u128, u32},
+    character::complete::{u32, u64},
     combinator::map,
     multi::separated_list0,
     sequence::{preceded, separated_pair, terminated, tuple},
@@ -25,9 +25,9 @@ pub fn part2(data: String) -> String {
 
 fn run(data: &str, rounds: u32, boredom_factor: u32) -> u64 {
     let monkeys = parse(&data);
-    let lcm: u128 = monkeys
+    let lcm: u32 = monkeys
         .iter()
-        .map(|m| m.borrow().test.divisible_by as u128)
+        .map(|m| m.borrow().test.divisible_by)
         .product();
 
     for _i in 1..=rounds {
@@ -68,7 +68,7 @@ impl Monkey {
         &mut self,
         monkeys: &Vec<Rc<RefCell<Monkey>>>,
         boredom_factor: u32,
-        lcm: u128,
+        lcm: u32,
     ) -> () {
         while let Some(item) = self.items.pop_front() {
             self.inspection_count += 1;
@@ -83,7 +83,7 @@ impl Monkey {
         if boredom_factor == 1 {
             item
         } else {
-            item / (boredom_factor as u128)
+            item / (boredom_factor as u64)
         }
     }
 
@@ -94,7 +94,7 @@ impl Monkey {
 
 type MonkeyId = usize;
 
-type Item = u128;
+type Item = u64;
 
 #[derive(Debug, PartialEq)]
 enum Op {
@@ -104,13 +104,13 @@ enum Op {
 }
 
 impl Op {
-    fn call(&self, item: &Item, lcm: u128) -> Item {
+    fn call(&self, item: &Item, lcm: u32) -> Item {
         let calc = match self {
-            Op::Mult(n) => item * (*n as u128),
-            Op::Plus(n) => item + (*n as u128),
+            Op::Mult(n) => item * (*n as u64),
+            Op::Plus(n) => item + (*n as u64),
             Op::Sq => item * item,
         };
-        calc % lcm
+        calc % (lcm as u64)
     }
 }
 
@@ -131,7 +131,7 @@ impl Test {
     }
 
     fn check(&self, item: &Item) -> MonkeyId {
-        if item % (self.divisible_by as u128) == 0 {
+        if item % (self.divisible_by as u64) == 0 {
             self.true_throw
         } else {
             self.false_throw
@@ -163,7 +163,7 @@ fn monkey_parser(input: &str) -> IResult<&str, Rc<RefCell<Monkey>>> {
 }
 
 fn items_parser(input: &str) -> IResult<&str, Vec<Item>> {
-    let mut p = preceded(tag("  Starting items: "), separated_list0(tag(", "), u128));
+    let mut p = preceded(tag("  Starting items: "), separated_list0(tag(", "), u64));
     p(input)
 }
 
