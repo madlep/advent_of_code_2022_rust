@@ -5,7 +5,8 @@ use nom::{
 
 pub fn part1(data: String) -> String {
     let mut signal_strength = 0_i32;
-    run(&data, |cycle, x_reg| {
+    run(&data, |i, x_reg| {
+        let cycle = i as i32 + 1;
         if (cycle - 20) % 40 == 0 {
             let new_signal_strength = cycle * x_reg;
             signal_strength += new_signal_strength;
@@ -14,16 +15,30 @@ pub fn part1(data: String) -> String {
     signal_strength.to_string()
 }
 
-pub fn part2(_data: String) -> String {
-    panic!("not implemented")
+const CRT_WIDTH: usize = 40;
+pub fn part2(data: String) -> String {
+    let mut crt = String::new();
+    run(&data, |i, x_reg| {
+        let pixel = i % CRT_WIDTH;
+        let pixel_output = if (x_reg - 1..=x_reg + 1).contains(&(pixel as i32)) {
+            '#'
+        } else {
+            '.'
+        };
+        crt.push(pixel_output);
+        if pixel == CRT_WIDTH - 1 {
+            crt.push('\n');
+        }
+    });
+    crt
 }
 
-type Cycle = i32;
+type Idx = usize;
 type Reg = i32;
 
 fn run<F>(data: &str, mut f: F) -> ()
 where
-    F: FnMut(Cycle, Reg) -> (),
+    F: FnMut(Idx, Reg) -> (),
 {
     let ops = parse(&data);
     let expanded_ops = ops.iter().flat_map(|op| match op {
@@ -33,8 +48,7 @@ where
 
     let mut x_reg = 1_i32;
     for (i, op) in expanded_ops.enumerate() {
-        let cycle = i as i32 + 1;
-        f(cycle, x_reg);
+        f(i, x_reg);
         match op {
             Op::Noop => (),
             Op::Addx(amount) => x_reg += amount,
