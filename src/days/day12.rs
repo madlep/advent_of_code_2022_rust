@@ -10,7 +10,9 @@ pub fn part1(data: String) -> String {
     let (heightmap, start, end) = build_heightmap(parsed);
 
     // paths from start -> every other square
-    let graph = build_graph(&heightmap);
+    let graph = build_graph(&heightmap, |height, neighbour_height| {
+        height + 1 >= neighbour_height
+    });
     let shortest_paths = graph.shortest_paths_from(start);
 
     shortest_paths.get(&end).unwrap().to_string()
@@ -21,8 +23,10 @@ pub fn part2(data: String) -> String {
     let (heightmap, _start, end) = build_heightmap(parsed);
 
     // paths from end -> every other square
-    let graph = build_reverse_graph(&heightmap);
-    let reverse_shortest_paths = graph.shortest_paths_from(end);
+    let reverse_graph = build_graph(&heightmap, |height, neighbour_height| {
+        height <= neighbour_height + 1
+    });
+    let reverse_shortest_paths = reverse_graph.shortest_paths_from(end);
 
     heightmap
         .iter()
@@ -73,25 +77,12 @@ fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord, Coord) 
     (heightmap, start.unwrap(), end.unwrap())
 }
 
-fn build_graph(hm: &HeightMap) -> Graph<Coord> {
+fn build_graph(hm: &HeightMap, neighbour_check: impl Fn(Height, Height) -> bool) -> Graph<Coord> {
     let mut g: Graph<Coord> = Graph::new();
     for (coord, h) in hm.iter() {
         g.push_vertex(*coord);
         for (n_coord, n_h) in neighbours(hm, *coord).iter() {
-            if *n_h <= h + 1 {
-                g.push_edge(*coord, *n_coord, STEP_WEIGHT);
-            }
-        }
-    }
-    g
-}
-
-fn build_reverse_graph(hm: &HeightMap) -> Graph<Coord> {
-    let mut g: Graph<Coord> = Graph::new();
-    for (coord, h) in hm.iter() {
-        g.push_vertex(*coord);
-        for (n_coord, n_h) in neighbours(hm, *coord).iter() {
-            if n_h + 1 >= *h {
+            if neighbour_check(*h, *n_h) {
                 g.push_edge(*coord, *n_coord, STEP_WEIGHT);
             }
         }
