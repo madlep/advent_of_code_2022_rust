@@ -77,7 +77,10 @@ fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord, Coord) 
     (heightmap, start.unwrap(), end.unwrap())
 }
 
-fn build_graph(hm: &HeightMap, neighbour_check: impl Fn(Height, Height) -> bool) -> Graph<Coord> {
+fn build_graph(
+    hm: &HeightMap,
+    neighbour_check: impl Fn(Height, NeighbourHeight) -> bool,
+) -> Graph<Coord> {
     let mut g: Graph<Coord> = Graph::new();
     for (coord, h) in hm.iter() {
         g.push_vertex(*coord);
@@ -105,7 +108,7 @@ impl Coord {
 
 type HeightMap = HashMap<Coord, Height>;
 
-fn neighbours(hm: &HeightMap, coord: Coord) -> Vec<(Coord, Height)> {
+fn neighbours(hm: &HeightMap, coord: Coord) -> Vec<(Coord, NeighbourHeight)> {
     let x = coord.x();
     let y = coord.y();
 
@@ -126,6 +129,7 @@ fn neighbours(hm: &HeightMap, coord: Coord) -> Vec<(Coord, Height)> {
 }
 
 type Height = u8;
+type NeighbourHeight = u8;
 
 type EdgeWeight = u32;
 
