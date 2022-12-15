@@ -9,64 +9,62 @@ pub fn part1(data: String) -> String {
     let parsed = parser::parse(&data);
     let (heightmap, start, end) = build_heightmap(parsed);
     let graph = build_graph(&heightmap);
-    let (shortest_dist, _shortest_prev) = graph.shortest_paths_from(start);
+    let shortest_paths = graph.shortest_paths_from(start);
 
-    shortest_dist.get(&end).unwrap().to_string()
+    shortest_paths.get(&end).unwrap().to_string()
 }
 
-pub fn part2(_data: String) -> String {
-    panic!("not implemented")
+pub fn part2(data: String) -> String {
+    let parsed = parser::parse(&data);
+    let (heightmap, start, end) = build_heightmap(parsed);
+    let graph = build_graph(&heightmap);
+    let shortest_paths = graph.shortest_paths_from(start);
+
+    shortest_paths.get(&end).unwrap().to_string()
 }
 
 const START_HEIGHT: u8 = 0;
 const END_HEIGHT: u8 = 25;
+const STEP_WEIGHT: u32 = 1;
 
 fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord, Coord) {
-    let width = parsed[0].len();
-    let height = parsed.len();
-    let mut heightmap = HeightMap::new(width, height);
-
+    let mut heightmap = HeightMap::new();
     let mut start: Option<Coord> = None;
     let mut end: Option<Coord> = None;
 
     for (y, row) in parsed.iter().enumerate() {
         for (x, parsed_h) in row.iter().enumerate() {
             let coord = Coord(x, y);
-            match parsed_h {
+            let h = match parsed_h {
                 ParsedHeight::Start => match start {
-                    Some(c) => panic!("start already set to x:{} y:{}", c.x(), c.y()),
+                    Some(_) => panic!("start already set"),
                     None => {
                         start = Some(coord);
-                        heightmap.push(START_HEIGHT);
+                        START_HEIGHT
                     }
                 },
                 ParsedHeight::End => match end {
-                    Some(c) => panic!("end already set to x:{} y:{}", c.x(), c.y()),
+                    Some(_) => panic!("end already set"),
                     None => {
                         end = Some(coord);
-                        heightmap.push(END_HEIGHT);
+                        END_HEIGHT
                     }
                 },
-                ParsedHeight::Elevation(h) => heightmap.push(*h),
-            }
+                ParsedHeight::Elevation(h) => *h,
+            };
+            heightmap.insert(coord, h);
         }
     }
     (heightmap, start.unwrap(), end.unwrap())
 }
 
 fn build_graph(hm: &HeightMap) -> Graph<Coord> {
-    let mut g = Graph::new();
-    for x in 0..hm.width {
-        for y in 0..hm.height {
-            let coord = Coord(x, y);
-            g.push_vertex(coord);
-
-            let h = hm.get(x, y).unwrap();
-
-            for (n_coord, n_h) in hm.neighbours(x, y).iter() {
-                if *n_h <= h + 1 {
-                    g.push_edge(coord, *n_coord, 1);
-                }
+    let mut g: Graph<Coord> = Graph::new();
+    for (coord, h) in hm.iter() {
+        g.push_vertex(*coord);
+        for (n_coord, n_h) in neighbours(hm, *coord).iter() {
+            if *n_h <= h + 1 {
+                g.push_edge(*coord, *n_coord, STEP_WEIGHT);
             }
         }
     }
@@ -86,53 +84,26 @@ impl Coord {
     }
 }
 
-struct HeightMap {
-    hm: Vec<Height>,
-    width: usize,
-    height: usize,
-}
-impl HeightMap {
-    fn new(width: usize, height: usize) -> Self {
-        Self {
-            hm: vec![],
-            width,
-            height,
-        }
-    }
+type HeightMap = HashMap<Coord, Height>;
 
-    fn get(&self, x: usize, y: usize) -> Option<&Height> {
-        self.hm.get(x + y * self.width)
-    }
+fn neighbours(hm: &HeightMap, coord: Coord) -> Vec<(Coord, Height)> {
+    let x = coord.x();
+    let y = coord.y();
 
-    fn push(&mut self, h: Height) -> () {
-        self.hm.push(h);
-    }
+    let mut ns = vec![];
+    ns.push(Coord(x, y + 1));
+    ns.push(Coord(x + 1, y));
+    // guard against panic due to subtracing from 0 for usize
+    if y > 0 {
+        ns.push(Coord(x, y - 1))
+    };
+    if x > 0 {
+        ns.push(Coord(x - 1, y))
+    };
 
-    fn neighbours(&self, x: usize, y: usize) -> Vec<(Coord, Height)> {
-        let mut ns = vec![];
-
-        // above
-        if y > 0 {
-            ns.push((Coord(x, y - 1), *self.get(x, y - 1).unwrap()));
-        }
-
-        // below
-        if y < self.height - 1 {
-            ns.push((Coord(x, y + 1), *self.get(x, y + 1).unwrap()));
-        }
-
-        // left
-        if x > 0 {
-            ns.push((Coord(x - 1, y), *self.get(x - 1, y).unwrap()));
-        }
-
-        // right
-        if x < self.width - 1 {
-            ns.push((Coord(x + 1, y), *self.get(x + 1, y).unwrap()));
-        }
-
-        ns
-    }
+    ns.iter()
+        .filter_map(|c| hm.get(c).map(|h| (*c, *h)))
+        .collect()
 }
 
 type Height = u8;
@@ -170,45 +141,33 @@ impl<T: Eq + Hash + Copy + Debug> Graph<T> {
         }
     }
 
-    fn shortest_paths_from(&self, from: T) -> (HashMap<T, u32>, HashMap<T, Option<T>>) {
+    fn shortest_paths_from(&self, from: T) -> HashMap<T, u32> {
         let mut dist: HashMap<T, u32> = HashMap::new();
-        let mut prev: HashMap<T, Option<T>> = HashMap::new();
-
         let mut queue = DoublePriorityQueue::new();
+        // big, but still able to add weight so we don't have to guard alt calculation for overflow
+        const INFINITY: u32 = u32::MAX / 2;
 
         for v in self.vertices.iter() {
-            let v_dist = if *v == from { 0 } else { u32::MAX };
+            let v_dist = if *v == from { 0 } else { INFINITY };
             dist.insert(*v, v_dist);
             queue.push(*v, v_dist);
-            prev.insert(*v, None);
         }
 
-        loop {
-            match queue.pop_min() {
-                None => break,
-                Some((u, _priority)) => match self.edges.get(&u) {
-                    None => (),
-                    Some(edges) => {
-                        for (v, weight) in edges.iter() {
-                            let dist_u = dist.get(&u).unwrap();
-                            let dist_v = dist.get(&v).unwrap();
-                            let alt = if *dist_u == u32::MAX {
-                                u32::MAX
-                            } else {
-                                dist_u + weight
-                            };
-                            if alt < *dist_v {
-                                dist.insert(*v, alt);
-                                prev.insert(*v, Some(u));
-                                queue.change_priority(v, alt);
-                            }
-                        }
+        while let Some((u, _priority)) = queue.pop_min() {
+            if let Some(edges) = self.edges.get(&u) {
+                let dist_u = *dist.get(&u).unwrap();
+                for (v, weight) in edges.iter() {
+                    let dist_v = dist.get(&v).unwrap();
+                    let alt = dist_u + weight;
+                    if alt < *dist_v {
+                        dist.insert(*v, alt);
+                        queue.change_priority(v, alt);
                     }
-                },
+                }
             }
         }
 
-        (dist, prev)
+        dist
     }
 }
 
