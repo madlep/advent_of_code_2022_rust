@@ -8,6 +8,8 @@ use priority_queue::DoublePriorityQueue;
 pub fn part1(data: String) -> String {
     let parsed = parser::parse(&data);
     let (heightmap, start, end) = build_heightmap(parsed);
+
+    // paths from start -> every other square
     let graph = build_graph(&heightmap);
     let shortest_paths = graph.shortest_paths_from(start);
 
@@ -16,11 +18,24 @@ pub fn part1(data: String) -> String {
 
 pub fn part2(data: String) -> String {
     let parsed = parser::parse(&data);
-    let (heightmap, start, end) = build_heightmap(parsed);
-    let graph = build_graph(&heightmap);
-    let shortest_paths = graph.shortest_paths_from(start);
+    let (heightmap, _start, end) = build_heightmap(parsed);
 
-    shortest_paths.get(&end).unwrap().to_string()
+    // paths from end -> every other square
+    let graph = build_reverse_graph(&heightmap);
+    let reverse_shortest_paths = graph.shortest_paths_from(end);
+
+    heightmap
+        .iter()
+        .filter_map(|(c, h)| {
+            if *h == START_HEIGHT {
+                Some(reverse_shortest_paths.get(c).unwrap())
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap()
+        .to_string()
 }
 
 const START_HEIGHT: u8 = 0;
@@ -64,6 +79,19 @@ fn build_graph(hm: &HeightMap) -> Graph<Coord> {
         g.push_vertex(*coord);
         for (n_coord, n_h) in neighbours(hm, *coord).iter() {
             if *n_h <= h + 1 {
+                g.push_edge(*coord, *n_coord, STEP_WEIGHT);
+            }
+        }
+    }
+    g
+}
+
+fn build_reverse_graph(hm: &HeightMap) -> Graph<Coord> {
+    let mut g: Graph<Coord> = Graph::new();
+    for (coord, h) in hm.iter() {
+        g.push_vertex(*coord);
+        for (n_coord, n_h) in neighbours(hm, *coord).iter() {
+            if n_h + 1 >= *h {
                 g.push_edge(*coord, *n_coord, STEP_WEIGHT);
             }
         }
