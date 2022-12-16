@@ -10,6 +10,7 @@ pub mod day09;
 pub mod day10;
 pub mod day11;
 pub mod day12;
+pub mod day13;
 
 pub type Day = u8;
 pub type Part = u8;
@@ -40,6 +41,8 @@ pub fn run_day_part(day: Day, part: Part, data: String) -> String {
         (11, 2) => day11::part2(data),
         (12, 1) => day12::part1(data),
         (12, 2) => day12::part2(data),
+        (13, 1) => day13::part1(data),
+        (13, 2) => day13::part2(data),
         (day_m, part_m) => panic!("Day {}, part {} is not implemented", day_m, part_m),
     }
 }
