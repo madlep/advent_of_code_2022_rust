@@ -2,7 +2,43 @@ use std::collections::HashSet;
 
 pub fn part1(data: String) -> String {
     let paths = parse(&data);
+    let (mut filled, deepest_y) = build_scan(paths);
 
+    let mut units = 0;
+    loop {
+        match flow_sand(Coord(500, 0), &filled, Bottom::Abyss(deepest_y)) {
+            SandMove::LostToAbyss => break,
+            SandMove::AtRest(grain) => filled.insert(grain),
+        };
+        units += 1;
+    }
+
+    units.to_string()
+}
+
+pub fn part2(data: String) -> String {
+    let paths = parse(&data);
+    let (mut filled, deepest_y) = build_scan(paths);
+
+    let mut units = 1;
+    loop {
+        match flow_sand(Coord(500, 0), &filled, Bottom::Floor(deepest_y + 2)) {
+            SandMove::LostToAbyss => panic!("shouldn't lose sand"),
+            SandMove::AtRest(grain) => {
+                if grain.y() == 0 && grain.x() == 500 {
+                    break;
+                } else {
+                    filled.insert(grain);
+                }
+            }
+        };
+        units += 1;
+    }
+
+    units.to_string()
+}
+
+fn build_scan(paths: Vec<Path>) -> (Fillmap, u32) {
     let mut deepest_y = 0;
     let mut filled: Fillmap = Fillmap::new();
     for path in paths.iter() {
@@ -13,21 +49,7 @@ pub fn part1(data: String) -> String {
             filled.insert(coord);
         }
     }
-
-    let mut units = 0;
-    loop {
-        match flow_sand(Coord(500, 0), &filled, deepest_y) {
-            SandMove::LostToAbyss => break,
-            SandMove::AtRest(grain) => filled.insert(grain),
-        };
-        units += 1;
-    }
-
-    units.to_string()
-}
-
-pub fn part2(_data: String) -> String {
-    panic!("not implemented");
+    (filled, deepest_y)
 }
 
 type Sandgrain = Coord;
@@ -38,13 +60,27 @@ enum SandMove {
     AtRest(Coord),
 }
 
-fn flow_sand(grain: Sandgrain, filled: &Fillmap, deepest: u32) -> SandMove {
+enum Bottom {
+    Abyss(u32),
+    Floor(u32),
+}
+
+fn flow_sand(grain: Sandgrain, filled: &Fillmap, deepest: Bottom) -> SandMove {
     let mut g = grain.clone();
 
     loop {
         let below = Coord(g.x(), g.y() + 1);
-        if below.y() > deepest {
-            return SandMove::LostToAbyss;
+        match deepest {
+            Bottom::Abyss(d) => {
+                if below.y() > d {
+                    return SandMove::LostToAbyss;
+                }
+            }
+            Bottom::Floor(d) => {
+                if below.y() == d {
+                    return SandMove::AtRest(g);
+                }
+            }
         }
         if !filled.contains(&below) {
             g = below;

@@ -11,5 +11,5 @@ fn part1_example_data() {
 
 #[test]
 fn part2_example_data() {
-    assert_eq!(part2(DATA.to_string()), "fail");
+    assert_eq!(part2(DATA.to_string()), "93");
 }
