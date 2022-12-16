@@ -2,11 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use parser::ParsedHeight;
 use priority_queue::DoublePriorityQueue;
 
 pub fn part1(data: String) -> String {
-    let parsed = parser::parse(&data);
+    let parsed = parse(&data);
     let (heightmap, start, end) = build_heightmap(parsed);
 
     // paths from start -> every other square
@@ -19,7 +18,7 @@ pub fn part1(data: String) -> String {
 }
 
 pub fn part2(data: String) -> String {
-    let parsed = parser::parse(&data);
+    let parsed = parse(&data);
     let (heightmap, _start, end) = build_heightmap(parsed);
 
     // paths from end -> every other square
@@ -194,54 +193,52 @@ impl<T: Eq + Hash + Copy + Debug> Graph<T> {
     }
 }
 
-mod parser {
-    use nom::{
-        branch::alt,
-        bytes::complete::tag,
-        character::complete::satisfy,
-        combinator::{map, value},
-        multi::{many1, separated_list1},
-        IResult,
-    };
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::satisfy,
+    combinator::{map, value},
+    multi::{many1, separated_list1},
+    IResult,
+};
 
-    #[derive(Clone, Debug)]
-    pub enum ParsedHeight {
-        Start,
-        End,
-        Elevation(u8),
-    }
+#[derive(Clone, Debug)]
+pub enum ParsedHeight {
+    Start,
+    End,
+    Elevation(u8),
+}
 
-    const ASCII_OFFSET: u8 = 97;
+const ASCII_OFFSET: u8 = 97;
 
-    pub fn parse(s: &str) -> Vec<Vec<ParsedHeight>> {
-        let (_rest, hm) = heightmap(s).unwrap();
-        hm
-    }
-    fn heightmap(s: &str) -> IResult<&str, Vec<Vec<ParsedHeight>>> {
-        separated_list1(tag("\n"), heightmap_row)(s)
-    }
+pub fn parse(s: &str) -> Vec<Vec<ParsedHeight>> {
+    let (_rest, hm) = heightmap(s).unwrap();
+    hm
+}
+fn heightmap(s: &str) -> IResult<&str, Vec<Vec<ParsedHeight>>> {
+    separated_list1(tag("\n"), heightmap_row)(s)
+}
 
-    fn heightmap_row(s: &str) -> IResult<&str, Vec<ParsedHeight>> {
-        many1(height)(s)
-    }
+fn heightmap_row(s: &str) -> IResult<&str, Vec<ParsedHeight>> {
+    many1(height)(s)
+}
 
-    fn height(s: &str) -> IResult<&str, ParsedHeight> {
-        alt((start, end, elevation))(s)
-    }
+fn height(s: &str) -> IResult<&str, ParsedHeight> {
+    alt((start, end, elevation))(s)
+}
 
-    fn start(s: &str) -> IResult<&str, ParsedHeight> {
-        let mut p = value(ParsedHeight::Start, tag("S"));
-        p(s)
-    }
+fn start(s: &str) -> IResult<&str, ParsedHeight> {
+    let mut p = value(ParsedHeight::Start, tag("S"));
+    p(s)
+}
 
-    fn end(s: &str) -> IResult<&str, ParsedHeight> {
-        let mut p = value(ParsedHeight::End, tag("E"));
-        p(s)
-    }
+fn end(s: &str) -> IResult<&str, ParsedHeight> {
+    let mut p = value(ParsedHeight::End, tag("E"));
+    p(s)
+}
 
-    fn elevation(s: &str) -> IResult<&str, ParsedHeight> {
-        let p = satisfy(|c| c >= 'a' && c <= 'z');
-        let mut p = map(p, |c| ParsedHeight::Elevation((c as u8) - ASCII_OFFSET));
-        p(s)
-    }
+fn elevation(s: &str) -> IResult<&str, ParsedHeight> {
+    let p = satisfy(|c| c >= 'a' && c <= 'z');
+    let mut p = map(p, |c| ParsedHeight::Elevation((c as u8) - ASCII_OFFSET));
+    p(s)
 }
