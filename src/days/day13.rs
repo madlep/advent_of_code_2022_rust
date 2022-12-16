@@ -10,8 +10,35 @@ pub fn part1(data: String) -> String {
         .to_string()
 }
 
-pub fn part2(_data: String) -> String {
-    panic!("not implemented");
+pub fn part2(data: String) -> String {
+    let packet_pairs = parse(&data);
+    let mut packets: Vec<&Packet> = packet_pairs
+        .iter()
+        .flat_map(|(p1, p2)| vec![p1, p2])
+        .collect();
+
+    let d1 = divider(2);
+    let d2 = divider(6);
+    packets.append(&mut vec![&d1, &d2]);
+    packets.sort();
+
+    let dividers = vec![divider(2), divider(6)];
+    packets
+        .iter()
+        .enumerate()
+        .filter_map(|(i, packet)| {
+            if dividers.contains(packet) {
+                Some(i + 1)
+            } else {
+                None
+            }
+        })
+        .product::<usize>()
+        .to_string()
+}
+
+fn divider(n: u32) -> Packet {
+    List(vec![List(vec![Integer(n)])])
 }
 
 #[derive(Debug, PartialEq, Eq)]
