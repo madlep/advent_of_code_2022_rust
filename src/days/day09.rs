@@ -1,10 +1,11 @@
 use std::collections::HashSet;
-use std::hash::Hash;
 
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::u32, combinator::map,
     multi::separated_list0, sequence::separated_pair, IResult,
 };
+
+use crate::coord::{Coord, Direction, ICoord};
 
 pub fn part1(data: String) -> String {
     run(data, 2).to_string()
@@ -16,7 +17,7 @@ pub fn part2(data: String) -> String {
 
 fn run(data: String, rope_length: usize) -> usize {
     let mut rope = Rope::new(rope_length);
-    let mut tail_visits: HashSet<Coord> = HashSet::new();
+    let mut tail_visits: HashSet<Coord<i32>> = HashSet::new();
     for instruction in parse(&data) {
         for _ in 0..instruction.size {
             rope.mv_head(&instruction.dir);
@@ -27,14 +28,14 @@ fn run(data: String, rope_length: usize) -> usize {
 }
 
 struct Rope {
-    nodes: Vec<Coord>,
+    nodes: Vec<Coord<i32>>,
 }
 
 impl Rope {
     fn new(length: usize) -> Self {
         let mut nodes = Vec::with_capacity(length);
         for _ in 0..length {
-            nodes.push(Coord(0, 0));
+            nodes.push(Coord::new(0, 0));
         }
         Rope { nodes }
     }
@@ -44,7 +45,7 @@ impl Rope {
         self.nodes[0] = prev_node;
         for i in 1..self.nodes.len() {
             let node = self.nodes[i];
-            match node.chase(&prev_node) {
+            match chase(&node, &prev_node) {
                 Some(new_node) => {
                     self.nodes[i] = new_node;
                     prev_node = new_node;
@@ -54,54 +55,34 @@ impl Rope {
         }
     }
 
-    fn tail(&self) -> &Coord {
+    fn tail(&self) -> &Coord<i32> {
         &self.nodes[self.nodes.len() - 1]
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-struct Coord(i32, i32);
-impl Coord {
-    fn x(&self) -> i32 {
-        self.0
-    }
-    fn y(&self) -> i32 {
-        self.1
-    }
-    fn mv(&self, dir: &Direction) -> Self {
-        use Direction::*;
-        match dir {
-            L => Self(self.x() - 1, self.y()),
-            R => Self(self.x() + 1, self.y()),
-            U => Self(self.x(), self.y() + 1),
-            D => Self(self.x(), self.y() - 1),
-        }
-    }
+fn chase(coord: &Coord<i32>, other: &Coord<i32>) -> Option<Coord<i32>> {
+    let x_diff = coord.x().abs_diff(other.x());
+    let y_diff = coord.y().abs_diff(other.y());
 
-    fn chase(&self, other: &Self) -> Option<Self> {
-        let x_diff = self.x().abs_diff(other.x());
-        let y_diff = self.y().abs_diff(other.y());
-
-        if x_diff <= 1 && y_diff <= 1 {
-            //already touching
-            None
-        } else if x_diff > y_diff {
-            // previous moved away horizontally
-            let d_x = if self.x() < other.x() { -1 } else { 1 };
-            Some(Self(other.x() + d_x, other.y()))
-        } else if x_diff < y_diff {
-            // previous moved away vertically
-            let d_y = if self.y() < other.y() { -1 } else { 1 };
-            Some(Self(other.x(), other.y() + d_y))
-        } else if x_diff == y_diff {
-            // previous moved away diagonally
-            let d_x = if self.x() < other.x() { -1 } else { 1 };
-            let d_y = if self.y() < other.y() { -1 } else { 1 };
-            Some(Self(other.x() + d_x, other.y() + d_y))
-        } else {
-            //shouldn't get here
-            panic!("x_diff: {x_diff} y_diff: {y_diff}")
-        }
+    if x_diff <= 1 && y_diff <= 1 {
+        //already touching
+        None
+    } else if x_diff > y_diff {
+        // previous moved away horizontally
+        let d_x = if coord.x() < other.x() { -1 } else { 1 };
+        Some(Coord::new(other.x() + d_x, other.y()))
+    } else if x_diff < y_diff {
+        // previous moved away vertically
+        let d_y = if coord.y() < other.y() { -1 } else { 1 };
+        Some(Coord::new(other.x(), other.y() + d_y))
+    } else if x_diff == y_diff {
+        // previous moved away diagonally
+        let d_x = if coord.x() < other.x() { -1 } else { 1 };
+        let d_y = if coord.y() < other.y() { -1 } else { 1 };
+        Some(Coord::new(other.x() + d_x, other.y() + d_y))
+    } else {
+        //shouldn't get here
+        panic!("x_diff: {x_diff} y_diff: {y_diff}")
     }
 }
 
@@ -109,14 +90,6 @@ impl Coord {
 struct Instruction {
     dir: Direction,
     size: MovementSize,
-}
-
-#[derive(Debug, PartialEq)]
-enum Direction {
-    L,
-    R,
-    U,
-    D,
 }
 
 type MovementSize = u32;
@@ -229,59 +202,59 @@ R 2";
 
     #[test]
     fn it_chases_right() {
-        let head = Coord(3, 0);
-        let tail = Coord(1, 0);
-        assert_eq!(tail.chase(&head), Some(Coord(2, 0)));
+        let head = Coord::new(3, 0);
+        let tail = Coord::new(1, 0);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(2, 0)));
 
-        let head = Coord(-1, 0);
-        let tail = Coord(-3, 0);
-        assert_eq!(tail.chase(&head), Some(Coord(-2, 0)));
+        let head = Coord::new(-1, 0);
+        let tail = Coord::new(-3, 0);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(-2, 0)));
     }
 
     #[test]
     fn it_chase_left() {
-        let head = Coord(1, 0);
-        let tail = Coord(3, 0);
-        assert_eq!(tail.chase(&head), Some(Coord(2, 0)));
+        let head = Coord::new(1, 0);
+        let tail = Coord::new(3, 0);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(2, 0)));
 
-        let head = Coord(-3, 0);
-        let tail = Coord(-1, 0);
-        assert_eq!(tail.chase(&head), Some(Coord(-2, 0)));
+        let head = Coord::new(-3, 0);
+        let tail = Coord::new(-1, 0);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(-2, 0)));
     }
 
     #[test]
     fn it_chases_up() {
-        let head = Coord(0, 3);
-        let tail = Coord(0, 1);
-        assert_eq!(tail.chase(&head), Some(Coord(0, 2)));
+        let head = Coord::new(0, 3);
+        let tail = Coord::new(0, 1);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(0, 2)));
 
-        let head = Coord(0, -1);
-        let tail = Coord(0, -3);
-        assert_eq!(tail.chase(&head), Some(Coord(0, -2)));
+        let head = Coord::new(0, -1);
+        let tail = Coord::new(0, -3);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(0, -2)));
     }
 
     #[test]
     fn it_chases_down() {
-        let head = Coord(0, 1);
-        let tail = Coord(0, 3);
-        assert_eq!(tail.chase(&head), Some(Coord(0, 2)));
+        let head = Coord::new(0, 1);
+        let tail = Coord::new(0, 3);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(0, 2)));
 
-        let head = Coord(0, -3);
-        let tail = Coord(0, -1);
-        assert_eq!(tail.chase(&head), Some(Coord(0, -2)));
+        let head = Coord::new(0, -3);
+        let tail = Coord::new(0, -1);
+        assert_eq!(chase(&tail, &head), Some(Coord::new(0, -2)));
     }
 
     #[test]
     fn it_doesnt_chase_if_touching() {
-        let head = Coord(2, 3);
-        assert_eq!(Coord(1, 2).chase(&head), None); // above left
-        assert_eq!(Coord(2, 2).chase(&head), None); // above
-        assert_eq!(Coord(3, 2).chase(&head), None); // above right
-        assert_eq!(Coord(1, 3).chase(&head), None); // left
-        assert_eq!(Coord(2, 3).chase(&head), None); // same position
-        assert_eq!(Coord(3, 3).chase(&head), None); // right
-        assert_eq!(Coord(1, 4).chase(&head), None); // below left
-        assert_eq!(Coord(2, 4).chase(&head), None); // below
-        assert_eq!(Coord(3, 4).chase(&head), None); // below right
+        let head = Coord::new(2, 3);
+        assert_eq!(chase(&Coord::new(1, 2), &head), None); // above left
+        assert_eq!(chase(&Coord::new(2, 2), &head), None); // above
+        assert_eq!(chase(&Coord::new(3, 2), &head), None); // above right
+        assert_eq!(chase(&Coord::new(1, 3), &head), None); // left
+        assert_eq!(chase(&Coord::new(2, 3), &head), None); // same position
+        assert_eq!(chase(&Coord::new(3, 3), &head), None); // right
+        assert_eq!(chase(&Coord::new(1, 4), &head), None); // below left
+        assert_eq!(chase(&Coord::new(2, 4), &head), None); // below
+        assert_eq!(chase(&Coord::new(3, 4), &head), None); // below right
     }
 }

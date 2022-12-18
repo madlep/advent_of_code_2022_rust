@@ -1,6 +1,8 @@
 use std::cmp;
 use std::str::FromStr;
 
+use crate::coord::{Coord, ICoord};
+
 pub fn part1(data: String) -> String {
     let mut trees: Trees = data.parse().unwrap();
     trees.build_trees_visibility();
@@ -22,8 +24,8 @@ pub fn part2(data: String) -> String {
 
 struct Trees {
     trees: Vec<Tree>,
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
 }
 
 struct InconsistentRowSizeError(String);
@@ -40,9 +42,9 @@ impl Trees {
     fn append_row(&mut self, mut row: Vec<Tree>) -> Result<(), InconsistentRowSizeError> {
         if self.width == 0 {
             // first row, set width and expect subsequent to be equal
-            self.width = row.len();
+            self.width = row.len() as u32;
         } else {
-            if self.width != row.len() {
+            if self.width != row.len() as u32 {
                 return Err(InconsistentRowSizeError(format!(
                     "Expected row size: {} got: {}",
                     self.width,
@@ -55,14 +57,14 @@ impl Trees {
         Ok(())
     }
 
-    fn get(&self, coord: Coord) -> &Tree {
-        let i = coord.y * self.width + coord.x;
-        &self.trees[i]
+    fn get(&self, coord: Coord<u32>) -> &Tree {
+        let i = coord.y() * self.width + coord.x();
+        &self.trees[i as usize]
     }
 
-    fn get_mut(&mut self, coord: Coord) -> &mut Tree {
-        let i = coord.y * self.width + coord.x;
-        &mut self.trees[i]
+    fn get_mut(&mut self, coord: Coord<u32>) -> &mut Tree {
+        let i = coord.y() * self.width + coord.x();
+        &mut self.trees[i as usize]
     }
 
     fn iter(&self) -> impl Iterator<Item = &Tree> {
@@ -74,48 +76,48 @@ impl Trees {
 
         // walk from north,
         {
-            let mut north_vis = vec![-1; self.width];
+            let mut north_vis = vec![-1; self.width as usize];
             for y in 0..self.height {
                 for x in 0..self.width {
-                    let tree = &mut self.get_mut(Coord { x, y });
-                    tree.vis.n = north_vis[x];
-                    north_vis[x] = cmp::max(north_vis[x], tree.h);
+                    let tree = &mut self.get_mut(Coord::new(x, y));
+                    tree.vis.n = north_vis[x as usize];
+                    north_vis[x as usize] = cmp::max(north_vis[x as usize], tree.h);
                 }
             }
         }
 
         // walk from east,
         {
-            let mut east_vis = vec![-1; self.height];
+            let mut east_vis = vec![-1; self.height as usize];
             for x in (0..self.width).rev() {
                 for y in 0..self.height {
-                    let tree = &mut self.get_mut(Coord { x, y });
-                    tree.vis.e = east_vis[y];
-                    east_vis[y] = cmp::max(east_vis[y], tree.h);
+                    let tree = &mut self.get_mut(Coord::new(x, y));
+                    tree.vis.e = east_vis[y as usize];
+                    east_vis[y as usize] = cmp::max(east_vis[y as usize], tree.h);
                 }
             }
         }
 
         // walk from west,
         {
-            let mut west_vis = vec![-1; self.height];
+            let mut west_vis = vec![-1; self.height as usize];
             for x in 0..self.width {
                 for y in 0..self.height {
-                    let tree = &mut self.get_mut(Coord { x, y });
-                    tree.vis.w = west_vis[y];
-                    west_vis[y] = cmp::max(west_vis[y], tree.h);
+                    let tree = &mut self.get_mut(Coord::new(x, y));
+                    tree.vis.w = west_vis[y as usize];
+                    west_vis[y as usize] = cmp::max(west_vis[y as usize], tree.h);
                 }
             }
         }
 
         // walk from south,
         {
-            let mut south_vis = vec![-1; self.width];
+            let mut south_vis = vec![-1; self.width as usize];
             for y in (0..self.height).rev() {
                 for x in 0..self.width {
-                    let tree = &mut self.get_mut(Coord { x, y });
-                    tree.vis.s = south_vis[x];
-                    south_vis[x] = cmp::max(south_vis[x], tree.h);
+                    let tree = &mut self.get_mut(Coord::new(x, y));
+                    tree.vis.s = south_vis[x as usize];
+                    south_vis[x as usize] = cmp::max(south_vis[x as usize], tree.h);
                 }
             }
         }
@@ -124,14 +126,11 @@ impl Trees {
     fn build_trees_scenic_score(&mut self) -> () {
         for x in 0..self.width {
             for y in 0..self.height {
-                let tree = self.get(Coord { x, y });
+                let tree = self.get(Coord::new(x, y));
 
                 let mut north_score = 0;
                 for other_y in (0..y).rev() {
-                    let other_tree = self.get(Coord {
-                        x: tree.coord.x,
-                        y: other_y,
-                    });
+                    let other_tree = self.get(Coord::new(tree.coord.x(), other_y));
                     north_score += 1;
                     if other_tree.h >= tree.h {
                         break;
@@ -140,10 +139,7 @@ impl Trees {
 
                 let mut east_score = 0;
                 for other_x in x + 1..self.width {
-                    let other_tree = self.get(Coord {
-                        x: other_x,
-                        y: tree.coord.y,
-                    });
+                    let other_tree = self.get(Coord::new(other_x, tree.coord.y()));
                     east_score += 1;
                     if other_tree.h >= tree.h {
                         break;
@@ -152,10 +148,7 @@ impl Trees {
 
                 let mut west_score = 0;
                 for other_x in (0..x).rev() {
-                    let other_tree = self.get(Coord {
-                        x: other_x,
-                        y: tree.coord.y,
-                    });
+                    let other_tree = self.get(Coord::new(other_x, tree.coord.y()));
                     west_score += 1;
                     if other_tree.h >= tree.h {
                         break;
@@ -164,17 +157,14 @@ impl Trees {
 
                 let mut south_score = 0;
                 for other_y in y + 1..self.height {
-                    let other_tree = self.get(Coord {
-                        x: tree.coord.x,
-                        y: other_y,
-                    });
+                    let other_tree = self.get(Coord::new(tree.coord.x(), other_y));
                     south_score += 1;
                     if other_tree.h >= tree.h {
                         break;
                     }
                 }
 
-                self.get_mut(Coord { x, y }).scenic_score =
+                self.get_mut(Coord::new(x, y)).scenic_score =
                     (north_score * east_score * west_score * south_score)
                         .try_into()
                         .unwrap();
@@ -202,7 +192,7 @@ impl FromStr for Trees {
                         ))
                     }
                 };
-                let tree = Tree::new(h, Coord { x, y });
+                let tree = Tree::new(h, Coord::new(x as u32, y as u32));
                 tree_row.push(tree);
             }
             trees
@@ -227,13 +217,13 @@ impl IntoIterator for Trees {
 #[allow(dead_code)]
 struct Tree {
     h: Height,
-    coord: Coord,
+    coord: Coord<u32>,
     vis: Visibilities,
     scenic_score: u32,
 }
 
 impl Tree {
-    fn new(h: Height, coord: Coord) -> Self {
+    fn new(h: Height, coord: Coord<u32>) -> Self {
         Self {
             h,
             coord,
@@ -261,10 +251,4 @@ struct Visibilities {
     e: Vis,
     w: Vis,
     s: Vis,
-}
-
-#[derive(Debug)]
-struct Coord {
-    x: usize,
-    y: usize,
 }

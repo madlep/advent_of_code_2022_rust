@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use crate::coord::{Coord, ICoord};
 use priority_queue::DoublePriorityQueue;
 
 pub fn part1(data: String) -> String {
@@ -45,14 +46,14 @@ const START_HEIGHT: u8 = 0;
 const END_HEIGHT: u8 = 25;
 const STEP_WEIGHT: u32 = 1;
 
-fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord, Coord) {
+fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord<u32>, Coord<u32>) {
     let mut heightmap = HeightMap::new();
-    let mut start: Option<Coord> = None;
-    let mut end: Option<Coord> = None;
+    let mut start: Option<Coord<u32>> = None;
+    let mut end: Option<Coord<u32>> = None;
 
     for (y, row) in parsed.iter().enumerate() {
         for (x, parsed_h) in row.iter().enumerate() {
-            let coord = Coord(x, y);
+            let coord = Coord::new(x as u32, y as u32);
             let h = match parsed_h {
                 ParsedHeight::Start => match start {
                     Some(_) => panic!("start already set"),
@@ -79,8 +80,8 @@ fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord, Coord) 
 fn build_graph(
     hm: &HeightMap,
     neighbour_check: impl Fn(Height, NeighbourHeight) -> bool,
-) -> Graph<Coord> {
-    let mut g: Graph<Coord> = Graph::new();
+) -> Graph<Coord<u32>> {
+    let mut g: Graph<Coord<u32>> = Graph::new();
     for (coord, h) in hm.iter() {
         g.push_vertex(*coord);
         for (n_coord, n_h) in neighbours(hm, *coord).iter() {
@@ -92,34 +93,21 @@ fn build_graph(
     g
 }
 
-#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
-struct Coord(usize, usize);
+type HeightMap = HashMap<Coord<u32>, Height>;
 
-impl Coord {
-    fn x(&self) -> usize {
-        self.0
-    }
-
-    fn y(&self) -> usize {
-        self.1
-    }
-}
-
-type HeightMap = HashMap<Coord, Height>;
-
-fn neighbours(hm: &HeightMap, coord: Coord) -> Vec<(Coord, NeighbourHeight)> {
+fn neighbours(hm: &HeightMap, coord: Coord<u32>) -> Vec<(Coord<u32>, NeighbourHeight)> {
     let x = coord.x();
     let y = coord.y();
 
     let mut ns = vec![];
-    ns.push(Coord(x, y + 1));
-    ns.push(Coord(x + 1, y));
+    ns.push(Coord::new(x, y + 1));
+    ns.push(Coord::new(x + 1, y));
     // guard against panic due to subtracing from 0 for usize
     if y > 0 {
-        ns.push(Coord(x, y - 1))
+        ns.push(Coord::new(x, y - 1))
     };
     if x > 0 {
-        ns.push(Coord(x - 1, y))
+        ns.push(Coord::new(x - 1, y))
     };
 
     ns.iter()

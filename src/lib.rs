@@ -1,3 +1,4 @@
+pub mod coord;
 pub mod days;
 use std::io::Read;
 use std::path::PathBuf;

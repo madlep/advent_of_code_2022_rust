@@ -1,3 +1,4 @@
+use crate::coord::{Coord, ICoord, Orientation};
 use std::collections::HashSet;
 
 pub fn part1(data: String) -> String {
@@ -6,7 +7,7 @@ pub fn part1(data: String) -> String {
 
     let mut units = 0;
     loop {
-        match flow_sand(Coord(500, 0), &filled, Bottom::Abyss(deepest_y)) {
+        match flow_sand(Sandgrain::new(500, 0), &filled, Bottom::Abyss(deepest_y)) {
             SandMove::LostToAbyss => break,
             SandMove::AtRest(grain) => filled.insert(grain),
         };
@@ -22,7 +23,11 @@ pub fn part2(data: String) -> String {
 
     let mut units = 1;
     loop {
-        match flow_sand(Coord(500, 0), &filled, Bottom::Floor(deepest_y + 2)) {
+        match flow_sand(
+            Sandgrain::new(500, 0),
+            &filled,
+            Bottom::Floor(deepest_y + 2),
+        ) {
             SandMove::LostToAbyss => panic!("shouldn't lose sand"),
             SandMove::AtRest(grain) => {
                 if grain.y() == 0 && grain.x() == 500 {
@@ -52,12 +57,12 @@ fn build_scan(paths: Vec<Path>) -> (Fillmap, u32) {
     (filled, deepest_y)
 }
 
-type Sandgrain = Coord;
+type Sandgrain = Coord<u32>;
 type Fillmap = HashSet<Sandgrain>;
 
 enum SandMove {
     LostToAbyss,
-    AtRest(Coord),
+    AtRest(Sandgrain),
 }
 
 enum Bottom {
@@ -69,7 +74,7 @@ fn flow_sand(grain: Sandgrain, filled: &Fillmap, deepest: Bottom) -> SandMove {
     let mut g = grain.clone();
 
     loop {
-        let below = Coord(g.x(), g.y() + 1);
+        let below = Coord::new(g.x(), g.y() + 1);
         match deepest {
             Bottom::Abyss(d) => {
                 if below.y() > d {
@@ -87,13 +92,13 @@ fn flow_sand(grain: Sandgrain, filled: &Fillmap, deepest: Bottom) -> SandMove {
             continue;
         }
 
-        let left = Coord(g.x() - 1, g.y() + 1);
+        let left = Coord::new(g.x() - 1, g.y() + 1);
         if !filled.contains(&left) {
             g = left;
             continue;
         }
 
-        let right = Coord(g.x() + 1, g.y() + 1);
+        let right = Coord::new(g.x() + 1, g.y() + 1);
         if !filled.contains(&right) {
             g = right;
             continue;
@@ -104,10 +109,10 @@ fn flow_sand(grain: Sandgrain, filled: &Fillmap, deepest: Bottom) -> SandMove {
 }
 
 #[derive(Debug, PartialEq)]
-struct Path(Vec<Coord>);
+struct Path(Vec<Coord<u32>>);
 
 impl<'a> Path {
-    fn coords(&'a self) -> Vec<Coord> {
+    fn coords(&'a self) -> Vec<Coord<u32>> {
         let mut segments = vec![];
         for i in 0..self.0.len() - 1 {
             let from = &self.0[i];
@@ -117,26 +122,13 @@ impl<'a> Path {
         segments
             .iter()
             .flat_map(|s| s.coords())
-            .collect::<Vec<Coord>>()
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, PartialOrd, Ord, Eq, Hash)]
-struct Coord(u32, u32);
-
-impl Coord {
-    fn x(&self) -> u32 {
-        self.0
-    }
-
-    fn y(&self) -> u32 {
-        self.1
+            .collect::<Vec<Coord<u32>>>()
     }
 }
 
 struct Segment<'a> {
-    from: &'a Coord,
-    to: &'a Coord,
+    from: &'a Coord<u32>,
+    to: &'a Coord<u32>,
 }
 
 impl<'a> Segment<'a> {
@@ -147,9 +139,9 @@ impl<'a> Segment<'a> {
         let end = coords[1];
         let current = (*start).clone();
         let dir = if start.x() != end.x() && start.y() == end.y() {
-            Dir::Horizontal
+            Orientation::Horizontal
         } else if start.x() == end.x() && start.y() != end.y() {
-            Dir::Vertical
+            Orientation::Vertical
         } else {
             panic!("coords not aligned horizontally or vertically");
         };
@@ -163,20 +155,15 @@ impl<'a> Segment<'a> {
     }
 }
 
-enum Dir {
-    Horizontal,
-    Vertical,
-}
-
 struct SegmentCoordsIterator<'a> {
-    current: Coord,
-    end: &'a Coord,
-    dir: Dir,
+    current: Coord<u32>,
+    end: &'a Coord<u32>,
+    dir: Orientation,
     finished: bool,
 }
 
 impl<'a> Iterator for SegmentCoordsIterator<'a> {
-    type Item = Coord;
+    type Item = Coord<u32>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
             return None;
@@ -188,8 +175,8 @@ impl<'a> Iterator for SegmentCoordsIterator<'a> {
             self.finished = true;
         } else {
             self.current = match self.dir {
-                Dir::Horizontal => Coord(self.current.x() + 1, self.current.y()),
-                Dir::Vertical => Coord(self.current.x(), self.current.y() + 1),
+                Orientation::Horizontal => Coord::new(self.current.x() + 1, self.current.y()),
+                Orientation::Vertical => Coord::new(self.current.x(), self.current.y() + 1),
             };
         }
 
@@ -217,9 +204,9 @@ fn path(s: &str) -> IResult<&str, Path> {
     p(s)
 }
 
-fn coord(s: &str) -> IResult<&str, Coord> {
+fn coord(s: &str) -> IResult<&str, Coord<u32>> {
     let p = separated_pair(u32, tag(","), u32);
-    let mut p = map(p, |(x, y)| Coord(x, y));
+    let mut p = map(p, |(x, y)| Coord::new(x, y));
     p(s)
 }
 
@@ -234,12 +221,16 @@ mod tests {
         assert_eq!(
             parse(data),
             vec![
-                Path(vec![Coord(498, 4), Coord(498, 6), Coord(496, 6)]),
                 Path(vec![
-                    Coord(503, 4),
-                    Coord(502, 4),
-                    Coord(502, 9),
-                    Coord(494, 9)
+                    Coord::new(498, 4),
+                    Coord::new(498, 6),
+                    Coord::new(496, 6)
+                ]),
+                Path(vec![
+                    Coord::new(503, 4),
+                    Coord::new(502, 4),
+                    Coord::new(502, 9),
+                    Coord::new(494, 9)
                 ])
             ]
         );
