@@ -48,7 +48,7 @@ pub fn run_day_part(day: Day, part: Part, data: String) -> String {
         (14, 1) => day14::part1(data),
         (14, 2) => day14::part2(data),
         (15, 1) => day15::part1(data, None),
-        (15, 2) => day15::part2(data),
+        (15, 2) => day15::part2(data, None),
         (day_m, part_m) => panic!("Day {}, part {} is not implemented", day_m, part_m),
     }
 }

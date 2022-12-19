@@ -1,9 +1,9 @@
-use num;
-use num::Num;
+use num::{self, Num};
 
 pub trait ICoord<T: Num> {
     fn x(&self) -> T;
     fn y(&self) -> T;
+    fn manhattan_distance(&self, other: &Self) -> T;
     fn mv(&self, dir: &Direction) -> Self
     where
         Self: Sized;
@@ -21,13 +21,29 @@ impl<T: Num + Copy> Coord<T> {
     }
 }
 
-impl<T: Num + Copy> ICoord<T> for Coord<T> {
+impl<T: Num + Copy + PartialOrd> ICoord<T> for Coord<T> {
     fn x(&self) -> T {
         self.x
     }
 
     fn y(&self) -> T {
         self.y
+    }
+
+    fn manhattan_distance(&self, other: &Self) -> T {
+        let (start_x, end_x) = if self.x() < other.x() {
+            (self.x(), other.x())
+        } else {
+            (other.x(), self.x())
+        };
+
+        let (start_y, end_y) = if self.y() < other.y() {
+            (self.y(), other.y())
+        } else {
+            (other.y(), self.y())
+        };
+
+        end_x - start_x + end_y - start_y
     }
 
     fn mv(&self, dir: &Direction) -> Self {
