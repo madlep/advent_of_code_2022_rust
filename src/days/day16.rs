@@ -1,6 +1,4 @@
 use rpds::HashTrieMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use nom::{
@@ -25,20 +23,27 @@ pub fn part1(data: String) -> String {
         acc.insert(room.valve_label, room.flow_rate)
     });
 
+    let mut path_graph = Graph::new();
+    for room in rooms.values() {
+        path_graph.push_vertex(room.valve_label);
+        for path in room.paths.iter() {
+            path_graph.push_edge(room.valve_label, *path, 1_u32)
+        }
+    }
+
     let best_found = Rc::new(RefCell::new(0_u32));
 
     let root = SearchState {
         score: 0,
         current_valve: hash_valve_label(('A', 'A')),
         flows,
-        rooms: Rc::new(rooms),
         remaining_minutes: TOTAL_MINUTES,
-        best_found: (&best_found).clone(),
+        best_found: best_found.clone(),
+        path_graph: Rc::new(path_graph),
+        shortest_dists_from: Rc::new(RefCell::new(HashMap::new())),
     };
 
-    let best = search(root);
-
-    best.to_string()
+    search(root).to_string()
 }
 
 pub fn part2(_data: String) -> String {
@@ -47,7 +52,7 @@ pub fn part2(_data: String) -> String {
 
 fn search(state: SearchState) -> u32 {
     if reject(&state) {
-        return state.best_found.borrow().clone();
+        return state.score;
     }
 
     if accept(&state) {
@@ -56,16 +61,14 @@ fn search(state: SearchState) -> u32 {
         if score > *best {
             *best = score;
         }
-        return best.clone();
     }
 
-    let mut best = 0_u32;
-
-    for state in next_states(&state) {
-        best = search(state).max(best);
-    }
-
-    best
+    next_states(&state)
+        .into_iter()
+        .map(|s| search(s))
+        .max()
+        .unwrap_or(0)
+        .max(state.score)
 }
 
 fn reject(state: &SearchState) -> bool {
@@ -94,15 +97,11 @@ fn accept(state: &SearchState) -> bool {
 fn next_states(state: &SearchState) -> Vec<SearchState> {
     let mut states = vec![];
     if !state.is_no_more_flows() {
-        let mut g = Graph::new();
+        let mut shortest_dists_from = state.shortest_dists_from.borrow_mut();
 
-        for room in state.rooms.values() {
-            g.push_vertex(room.valve_label);
-            for path in room.paths.iter() {
-                g.push_edge(room.valve_label, *path, 1)
-            }
-        }
-        let shortest_dists = g.shortest_paths_from(&state.current_valve);
+        let shortest_dists = shortest_dists_from
+            .entry(state.current_valve)
+            .or_insert_with(|| state.path_graph.shortest_paths_from(&state.current_valve));
 
         for unopened_valve in state.unopened_valves().iter() {
             if unopened_valve != &state.current_valve {
@@ -122,9 +121,10 @@ struct SearchState {
     score: u32,
     current_valve: ValveLabel,
     flows: HashTrieMap<ValveLabel, FlowRate>,
-    rooms: Rc<HashMap<ValveLabel, Room>>,
     remaining_minutes: u32,
     best_found: Rc<RefCell<u32>>,
+    path_graph: Rc<Graph<ValveLabel, u32>>,
+    shortest_dists_from: Rc<RefCell<HashMap<ValveLabel, HashMap<ValveLabel, u32>>>>,
 }
 
 impl SearchState {
@@ -162,13 +162,14 @@ impl SearchState {
     }
 }
 
-fn hash_valve_label(label: (char, char)) -> u64 {
-    let mut s = DefaultHasher::new();
-    label.hash(&mut s);
-    s.finish()
+fn hash_valve_label(label: (char, char)) -> (char, char) {
+    label
+    //let mut s = DefaultHasher::new();
+    //label.hash(&mut s);
+    //s.finish()
 }
 
-type ValveLabel = u64;
+type ValveLabel = (char, char);
 type FlowRate = u32;
 
 #[derive(Debug, PartialEq)]
