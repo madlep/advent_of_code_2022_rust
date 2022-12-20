@@ -1,9 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::hash::Hash;
 
 use crate::coord::{Coord, ICoord};
-use priority_queue::DoublePriorityQueue;
+use crate::graph::Graph;
 
 pub fn part1(data: String) -> String {
     let parsed = parse(&data);
@@ -13,7 +12,7 @@ pub fn part1(data: String) -> String {
     let graph = build_graph(&heightmap, |height, neighbour_height| {
         height + 1 >= neighbour_height
     });
-    let shortest_paths = graph.shortest_paths_from(start);
+    let shortest_paths = graph.shortest_paths_from(&start);
 
     shortest_paths.get(&end).unwrap().to_string()
 }
@@ -26,7 +25,7 @@ pub fn part2(data: String) -> String {
     let reverse_graph = build_graph(&heightmap, |height, neighbour_height| {
         height <= neighbour_height + 1
     });
-    let reverse_shortest_paths = reverse_graph.shortest_paths_from(end);
+    let reverse_shortest_paths = reverse_graph.shortest_paths_from(&end);
 
     heightmap
         .iter()
@@ -80,8 +79,8 @@ fn build_heightmap(parsed: Vec<Vec<ParsedHeight>>) -> (HeightMap, Coord<u32>, Co
 fn build_graph(
     hm: &HeightMap,
     neighbour_check: impl Fn(Height, NeighbourHeight) -> bool,
-) -> Graph<Coord<u32>> {
-    let mut g: Graph<Coord<u32>> = Graph::new();
+) -> Graph<Coord<u32>, EdgeWeight> {
+    let mut g: Graph<Coord<u32>, EdgeWeight> = Graph::new();
     for (coord, h) in hm.iter() {
         g.push_vertex(*coord);
         for (n_coord, n_h) in neighbours(hm, *coord).iter() {
@@ -119,67 +118,6 @@ type Height = u8;
 type NeighbourHeight = u8;
 
 type EdgeWeight = u32;
-
-#[derive(Debug)]
-struct Graph<T> {
-    vertices: HashSet<T>,
-    edges: HashMap<T, HashMap<T, EdgeWeight>>,
-}
-
-impl<T: Eq + Hash + Copy + Debug> Graph<T> {
-    fn new() -> Self {
-        Self {
-            vertices: HashSet::new(),
-            edges: HashMap::new(),
-        }
-    }
-
-    fn push_vertex(&mut self, vertex: T) -> () {
-        self.vertices.insert(vertex);
-    }
-
-    fn push_edge(&mut self, from: T, to: T, weight: EdgeWeight) -> () {
-        match self.edges.get_mut(&from) {
-            Some(edge_ends) => {
-                edge_ends.insert(to, weight);
-            }
-            None => {
-                let mut edge_ends = HashMap::new();
-                edge_ends.insert(to, weight);
-                self.edges.insert(from, edge_ends);
-            }
-        }
-    }
-
-    fn shortest_paths_from(&self, from: T) -> HashMap<T, u32> {
-        let mut dist: HashMap<T, u32> = HashMap::new();
-        let mut queue = DoublePriorityQueue::new();
-        // big, but still able to add weight so we don't have to guard alt calculation for overflow
-        const INFINITY: u32 = u32::MAX / 2;
-
-        for v in self.vertices.iter() {
-            let v_dist = if *v == from { 0 } else { INFINITY };
-            dist.insert(*v, v_dist);
-            queue.push(*v, v_dist);
-        }
-
-        while let Some((u, _priority)) = queue.pop_min() {
-            if let Some(edges) = self.edges.get(&u) {
-                let dist_u = *dist.get(&u).unwrap();
-                for (v, weight) in edges.iter() {
-                    let dist_v = dist.get(&v).unwrap();
-                    let alt = dist_u + weight;
-                    if alt < *dist_v {
-                        dist.insert(*v, alt);
-                        queue.change_priority(v, alt);
-                    }
-                }
-            }
-        }
-
-        dist
-    }
-}
 
 use nom::{
     branch::alt,

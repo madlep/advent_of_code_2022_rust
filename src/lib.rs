@@ -1,5 +1,7 @@
 pub mod coord;
 pub mod days;
+pub mod graph;
+
 use std::io::Read;
 use std::path::PathBuf;
 
