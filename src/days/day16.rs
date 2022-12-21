@@ -1,4 +1,6 @@
 use rpds::HashTrieMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use nom::{
@@ -161,14 +163,13 @@ impl SearchState {
     }
 }
 
-fn hash_valve_label(label: (char, char)) -> (char, char) {
-    label
-    //let mut s = DefaultHasher::new();
-    //label.hash(&mut s);
-    //s.finish()
+fn hash_valve_label(label: (char, char)) -> u64 {
+    let mut s = DefaultHasher::new();
+    label.hash(&mut s);
+    s.finish()
 }
 
-type ValveLabel = (char, char);
+type ValveLabel = u64;
 type FlowRate = u32;
 
 #[derive(Debug, PartialEq)]
