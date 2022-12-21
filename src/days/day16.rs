@@ -105,23 +105,16 @@ impl SearchState {
         shortest_dists_from_to: &ShortestDistFromTo,
     ) -> FlowRate {
         if self.reject(best_found) {
-            return self.score;
+            self.score.max(best_found)
+        } else if self.accept() {
+            self.score.max(best_found)
+        } else {
+            self.next_states(shortest_dists_from_to)
+                .into_iter()
+                .fold(self.score.max(best_found), |current_best, s| {
+                    s.search(current_best, shortest_dists_from_to)
+                })
         }
-
-        if self.accept() {
-            return self.score.max(best_found);
-        }
-
-        self.next_states(shortest_dists_from_to)
-            .into_iter()
-            .fold(best_found, |best, s| {
-                if s.reject(best) {
-                    best
-                } else {
-                    s.search(best, shortest_dists_from_to).max(best)
-                }
-            })
-            .max(self.score)
     }
 
     fn reject(&self, best_found: FlowRate) -> bool {
