@@ -16,33 +16,19 @@ use nom::{
 
 use crate::graph::Graph;
 
-const TOTAL_MINUTES: u32 = 30;
+const TOTAL_MINUTES: Minute = 30;
 
 pub fn part1(data: String) -> String {
     let rooms = parse(&data);
 
-    let flows = rooms.values().fold(HashTrieMap::new(), |acc, room| {
-        acc.insert(room.valve_label, room.flow_rate)
-    });
-
-    let mut path_graph = Graph::new();
-    for room in rooms.values() {
-        path_graph.push_vertex(room.valve_label);
-        for path in room.paths.iter() {
-            path_graph.push_edge(room.valve_label, *path, 1_u32)
-        }
-    }
-
-    let best_found = Rc::new(RefCell::new(0_u32));
-
     let root = SearchState {
         score: 0,
         current_valve: hash_valve_label(('A', 'A')),
-        flows,
+        flows: build_flows(&rooms),
         remaining_minutes: TOTAL_MINUTES,
-        best_found: best_found.clone(),
-        path_graph: Rc::new(path_graph),
-        shortest_dists_from: Rc::new(RefCell::new(HashMap::new())),
+        best_found: Rc::new(RefCell::new(0)),
+        path_graph: Rc::new(build_path_graph(&rooms)),
+        shortest_dists_from_to: Rc::new(RefCell::new(ShortestDistFromTo::new())),
     };
 
     root.search().to_string()
@@ -52,19 +38,45 @@ pub fn part2(_data: String) -> String {
     panic!("not implemented");
 }
 
+type ValveLabel = u64;
+type FlowRate = u32;
+type Flows = HashTrieMap<ValveLabel, FlowRate>;
+type Rooms = HashMap<ValveLabel, Room>;
+type Minute = u32;
+type ShortestDistTo = HashMap<ValveLabel, Minute>;
+type ShortestDistFromTo = HashMap<ValveLabel, ShortestDistTo>;
+type PathGraph = Graph<ValveLabel, Minute>;
+
+fn build_flows(rooms: &Rooms) -> Flows {
+    rooms.values().fold(Flows::new(), |acc, room| {
+        acc.insert(room.valve_label, room.flow_rate)
+    })
+}
+
+fn build_path_graph(rooms: &Rooms) -> PathGraph {
+    let mut path_graph = PathGraph::new();
+    for room in rooms.values() {
+        path_graph.push_vertex(room.valve_label);
+        for path in room.paths.iter() {
+            path_graph.push_edge(room.valve_label, *path, 1)
+        }
+    }
+    path_graph
+}
+
 #[derive(Clone, Debug)]
 struct SearchState {
-    score: u32,
+    score: FlowRate,
     current_valve: ValveLabel,
-    flows: HashTrieMap<ValveLabel, FlowRate>,
-    remaining_minutes: u32,
-    best_found: Rc<RefCell<u32>>,
-    path_graph: Rc<Graph<ValveLabel, u32>>,
-    shortest_dists_from: Rc<RefCell<HashMap<ValveLabel, HashMap<ValveLabel, u32>>>>,
+    flows: Flows,
+    remaining_minutes: Minute,
+    best_found: Rc<RefCell<FlowRate>>,
+    path_graph: Rc<PathGraph>,
+    shortest_dists_from_to: Rc<RefCell<ShortestDistFromTo>>,
 }
 
 impl SearchState {
-    fn search(&self) -> u32 {
+    fn search(&self) -> FlowRate {
         if self.reject() {
             return self.score;
         }
@@ -111,9 +123,9 @@ impl SearchState {
     fn next_states(&self) -> Vec<SearchState> {
         let mut states = vec![];
         if !self.is_no_more_flows() {
-            let mut shortest_dists_from = self.shortest_dists_from.borrow_mut();
+            let mut shortest_dists_from_to = self.shortest_dists_from_to.borrow_mut();
 
-            let shortest_dists = shortest_dists_from
+            let shortest_dists = shortest_dists_from_to
                 .entry(self.current_valve)
                 .or_insert_with(|| self.path_graph.shortest_paths_from(&self.current_valve));
 
@@ -129,7 +141,7 @@ impl SearchState {
 
         states
     }
-    fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: u32) -> Self {
+    fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: Minute) -> Self {
         let flow = self.flows.get(&valve).unwrap();
 
         let new_remaining = if self.remaining_minutes > travel_time {
@@ -151,8 +163,8 @@ impl SearchState {
         self.flows_left() == 0
     }
 
-    fn flows_left(&self) -> u32 {
-        self.flows.values().sum::<u32>()
+    fn flows_left(&self) -> FlowRate {
+        self.flows.values().sum::<FlowRate>()
     }
 
     fn unopened_valves(&self) -> Vec<ValveLabel> {
@@ -163,14 +175,11 @@ impl SearchState {
     }
 }
 
-fn hash_valve_label(label: (char, char)) -> u64 {
+fn hash_valve_label(label: (char, char)) -> ValveLabel {
     let mut s = DefaultHasher::new();
     label.hash(&mut s);
     s.finish()
 }
-
-type ValveLabel = u64;
-type FlowRate = u32;
 
 #[derive(Debug, PartialEq)]
 struct Room {
@@ -179,7 +188,7 @@ struct Room {
     paths: Vec<ValveLabel>,
 }
 
-fn parse(s: &str) -> HashMap<ValveLabel, Room> {
+fn parse(s: &str) -> Rooms {
     let (_rest, rooms) = rooms(s).unwrap();
 
     rooms
