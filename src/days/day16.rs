@@ -43,77 +43,11 @@ pub fn part1(data: String) -> String {
         shortest_dists_from: Rc::new(RefCell::new(HashMap::new())),
     };
 
-    search(root).to_string()
+    root.search().to_string()
 }
 
 pub fn part2(_data: String) -> String {
     panic!("not implemented");
-}
-
-fn search(state: SearchState) -> u32 {
-    if reject(&state) {
-        return state.score;
-    }
-
-    if accept(&state) {
-        let score = state.score;
-        let mut best = state.best_found.borrow_mut();
-        if score > *best {
-            *best = score;
-        }
-    }
-
-    next_states(&state)
-        .into_iter()
-        .map(|s| search(s))
-        .max()
-        .unwrap_or(0)
-        .max(state.score)
-}
-
-fn reject(state: &SearchState) -> bool {
-    // if it's impossible to beat the current best score even if we open ALL the remaining valves,
-    // then don't bother searching that path.
-    // This isn't exhaustive due to not accounting for
-    // - moving time
-    // - whether it is possible to even get to all the valves in remaining time
-    // so it may need to do extra work, but it won't skip any possibilities
-
-    let possible_remaining_score = state
-        .flows
-        .values()
-        .map(|flow| flow * (state.remaining_minutes.max(1) - 1))
-        .sum::<u32>();
-
-    let possible_score = state.score + possible_remaining_score;
-
-    possible_score <= *state.best_found.borrow()
-}
-
-fn accept(state: &SearchState) -> bool {
-    state.remaining_minutes == 0 || state.is_no_more_flows()
-}
-
-fn next_states(state: &SearchState) -> Vec<SearchState> {
-    let mut states = vec![];
-    if !state.is_no_more_flows() {
-        let mut shortest_dists_from = state.shortest_dists_from.borrow_mut();
-
-        let shortest_dists = shortest_dists_from
-            .entry(state.current_valve)
-            .or_insert_with(|| state.path_graph.shortest_paths_from(&state.current_valve));
-
-        for unopened_valve in state.unopened_valves().iter() {
-            if unopened_valve != &state.current_valve {
-                states.push(state.go_to_valve_and_open(
-                    *unopened_valve,
-                    *shortest_dists.get(unopened_valve).unwrap(),
-                ));
-            }
-        }
-    }
-
-    states
 }
 
 #[derive(Clone, Debug)]
@@ -128,6 +62,71 @@ struct SearchState {
 }
 
 impl SearchState {
+    fn search(&self) -> u32 {
+        if self.reject() {
+            return self.score;
+        }
+
+        if self.accept() {
+            let score = self.score;
+            let mut best = self.best_found.borrow_mut();
+            if score > *best {
+                *best = score;
+            }
+        }
+
+        self.next_states()
+            .into_iter()
+            .map(|s| s.search())
+            .max()
+            .unwrap_or(0)
+            .max(self.score)
+    }
+
+    fn reject(&self) -> bool {
+        // if it's impossible to beat the current best score even if we open ALL the remaining valves,
+        // then don't bother searching that path.
+        // This isn't exhaustive due to not accounting for
+        // - moving time
+        // - whether it is possible to even get to all the valves in remaining time
+        // so it may need to do extra work, but it won't skip any possibilities
+
+        let possible_remaining_score = self
+            .flows
+            .values()
+            .map(|flow| flow * (self.remaining_minutes.max(1) - 1))
+            .sum::<u32>();
+
+        let possible_score = self.score + possible_remaining_score;
+
+        possible_score <= *self.best_found.borrow()
+    }
+
+    fn accept(&self) -> bool {
+        self.remaining_minutes == 0 || self.is_no_more_flows()
+    }
+
+    fn next_states(&self) -> Vec<SearchState> {
+        let mut states = vec![];
+        if !self.is_no_more_flows() {
+            let mut shortest_dists_from = self.shortest_dists_from.borrow_mut();
+
+            let shortest_dists = shortest_dists_from
+                .entry(self.current_valve)
+                .or_insert_with(|| self.path_graph.shortest_paths_from(&self.current_valve));
+
+            for unopened_valve in self.unopened_valves().iter() {
+                if unopened_valve != &self.current_valve {
+                    states.push(self.go_to_valve_and_open(
+                        *unopened_valve,
+                        *shortest_dists.get(unopened_valve).unwrap(),
+                    ));
+                }
+            }
+        }
+
+        states
+    }
     fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: u32) -> Self {
         let flow = self.flows.get(&valve).unwrap();
 
