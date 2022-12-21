@@ -150,22 +150,22 @@ impl SearchState {
     }
 
     fn next_states(&self, shortest_dists_from_to: &ShortestDistFromTo) -> Vec<SearchState> {
-        let mut states = vec![];
-        if !self.is_no_more_flows() {
-            for unopened_valve in self.unopened_valves().into_iter() {
+        self.unopened_valves()
+            .into_iter()
+            .filter_map(|unopened_valve| {
                 let travel_time = shortest_dists_from_to
                     .get(&(self.current_valve, unopened_valve))
                     .unwrap();
 
                 if unopened_valve != self.current_valve
-                    && travel_time + OPEN_TIME <= self.remaining_minutes
+                    && travel_time + OPEN_TIME < self.remaining_minutes
                 {
-                    states.push(self.go_to_valve_and_open(unopened_valve, *travel_time));
+                    Some(self.go_to_valve_and_open(unopened_valve, *travel_time))
+                } else {
+                    None
                 }
-            }
-        }
-
-        states
+            })
+            .collect()
     }
 
     fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: Minute) -> Self {
