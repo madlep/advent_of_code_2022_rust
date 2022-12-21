@@ -116,7 +116,6 @@ impl SearchState {
             self.score.max(best_found)
         } else {
             self.next_states(shortest_dists_from_to)
-                .into_iter()
                 .fold(self.score.max(best_found), |current_best, s| {
                     s.search(current_best, shortest_dists_from_to)
                 })
@@ -149,7 +148,10 @@ impl SearchState {
         self.remaining_minutes < TRAVEL_TIME + OPEN_TIME || self.is_no_more_flows()
     }
 
-    fn next_states(&self, shortest_dists_from_to: &ShortestDistFromTo) -> Vec<SearchState> {
+    fn next_states<'a>(
+        &'a self,
+        shortest_dists_from_to: &'a ShortestDistFromTo,
+    ) -> impl Iterator<Item = SearchState> + 'a {
         self.unopened_valves()
             .into_iter()
             .filter_map(|unopened_valve| {
@@ -165,7 +167,6 @@ impl SearchState {
                     None
                 }
             })
-            .collect()
     }
 
     fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: Minute) -> Self {
