@@ -17,16 +17,19 @@ use nom::{
 use crate::graph::Graph;
 
 const TOTAL_MINUTES: Minute = 30;
+const OPEN_TIME: Minute = 1;
+const TRAVEL_TIME: Minute = 1;
+const NO_FLOW: FlowRate = 0;
 
 pub fn part1(data: String) -> String {
     let rooms = parse(&data);
 
     let root = SearchState {
-        score: 0,
+        score: NO_FLOW,
         current_valve: hash_valve_label(('A', 'A')),
         flows: build_flows(&rooms),
         remaining_minutes: TOTAL_MINUTES,
-        best_found: Rc::new(RefCell::new(0)),
+        best_found: Rc::new(RefCell::new(NO_FLOW)),
         path_graph: Rc::new(build_path_graph(&rooms)),
         shortest_dists_from_to: Rc::new(RefCell::new(ShortestDistFromTo::new())),
     };
@@ -58,7 +61,7 @@ fn build_path_graph(rooms: &Rooms) -> PathGraph {
     for room in rooms.values() {
         path_graph.push_vertex(room.valve_label);
         for path in room.paths.iter() {
-            path_graph.push_edge(room.valve_label, *path, 1)
+            path_graph.push_edge(room.valve_label, *path, TRAVEL_TIME)
         }
     }
     path_graph
@@ -93,7 +96,7 @@ impl SearchState {
             .into_iter()
             .map(|s| s.search())
             .max()
-            .unwrap_or(0)
+            .unwrap_or(NO_FLOW)
             .max(self.score)
     }
 
@@ -101,15 +104,18 @@ impl SearchState {
         // if it's impossible to beat the current best score even if we open ALL the remaining valves,
         // then don't bother searching that path.
         // This isn't exhaustive due to not accounting for
-        // - moving time
+        // - moving time more than one room
         // - whether it is possible to even get to all the valves in remaining time
         // so it may need to do extra work, but it won't skip any possibilities
 
-        let possible_remaining_score = self
-            .flows
-            .values()
-            .map(|flow| flow * (self.remaining_minutes.max(1) - 1))
-            .sum::<FlowRate>();
+        let possible_remaining_score = if self.remaining_minutes < 2 {
+            NO_FLOW
+        } else {
+            self.flows
+                .values()
+                .map(|flow| flow * (self.remaining_minutes - TRAVEL_TIME - OPEN_TIME))
+                .sum::<FlowRate>()
+        };
 
         let possible_score = self.score + possible_remaining_score;
 
@@ -130,7 +136,11 @@ impl SearchState {
                 .or_insert_with(|| self.path_graph.shortest_paths_from(&self.current_valve));
 
             for unopened_valve in self.unopened_valves().iter() {
-                if unopened_valve != &self.current_valve {
+                let travel_time = shortest_dists.get(unopened_valve).unwrap();
+
+                if unopened_valve != &self.current_valve
+                    && travel_time + OPEN_TIME <= self.remaining_minutes
+                {
                     states.push(self.go_to_valve_and_open(
                         *unopened_valve,
                         *shortest_dists.get(unopened_valve).unwrap(),
@@ -145,23 +155,19 @@ impl SearchState {
     fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: Minute) -> Self {
         let flow = self.flows.get(&valve).unwrap();
 
-        let new_remaining = if self.remaining_minutes > travel_time {
-            self.remaining_minutes - travel_time - 1
-        } else {
-            0
-        };
+        let new_remaining = self.remaining_minutes - travel_time - OPEN_TIME;
 
         Self {
             score: self.score + flow * new_remaining,
             current_valve: valve,
-            flows: self.flows.insert(self.current_valve, 0),
+            flows: self.flows.insert(self.current_valve, NO_FLOW),
             remaining_minutes: new_remaining,
             ..self.clone()
         }
     }
 
     fn is_no_more_flows(&self) -> bool {
-        self.flows_left() == 0
+        self.flows_left() == NO_FLOW
     }
 
     fn flows_left(&self) -> FlowRate {
@@ -171,7 +177,13 @@ impl SearchState {
     fn unopened_valves(&self) -> Vec<ValveLabel> {
         self.flows
             .iter()
-            .filter_map(|(valve_label, flow)| if *flow > 0 { Some(*valve_label) } else { None })
+            .filter_map(|(valve_label, flow)| {
+                if *flow > NO_FLOW {
+                    Some(*valve_label)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 }
