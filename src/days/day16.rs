@@ -90,6 +90,7 @@ impl SearchState {
             if score > *best {
                 *best = score;
             }
+            return score;
         }
 
         self.next_states()
@@ -123,7 +124,7 @@ impl SearchState {
     }
 
     fn accept(&self) -> bool {
-        self.remaining_minutes == 0 || self.is_no_more_flows()
+        self.remaining_minutes < TRAVEL_TIME + OPEN_TIME || self.is_no_more_flows()
     }
 
     fn next_states(&self) -> Vec<SearchState> {
