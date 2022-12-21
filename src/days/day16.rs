@@ -30,10 +30,10 @@ pub fn part1(data: String) -> String {
         current_valve,
         flows: build_flows(&rooms),
         remaining_minutes: TOTAL_MINUTES,
-        shortest_dists_from_to: &build_shortest_from_to(current_valve, &rooms),
     };
 
-    root.search(NO_FLOW).to_string()
+    root.search(NO_FLOW, &build_shortest_from_to(current_valve, &rooms))
+        .to_string()
 }
 
 pub fn part2(_data: String) -> String {
@@ -91,16 +91,19 @@ fn build_shortest_from_to(initial: ValveLabel, rooms: &Rooms) -> ShortestDistFro
 }
 
 #[derive(Clone, Debug)]
-struct SearchState<'a> {
+struct SearchState {
     score: FlowRate,
     current_valve: ValveLabel,
     flows: Flows,
     remaining_minutes: Minute,
-    shortest_dists_from_to: &'a ShortestDistFromTo,
 }
 
-impl<'a> SearchState<'a> {
-    fn search(&self, best_found: FlowRate) -> FlowRate {
+impl SearchState {
+    fn search(
+        &self,
+        best_found: FlowRate,
+        shortest_dists_from_to: &ShortestDistFromTo,
+    ) -> FlowRate {
         if self.reject(best_found) {
             return self.score;
         }
@@ -109,13 +112,13 @@ impl<'a> SearchState<'a> {
             return self.score.max(best_found);
         }
 
-        self.next_states()
+        self.next_states(shortest_dists_from_to)
             .into_iter()
             .fold(best_found, |best, s| {
                 if s.reject(best) {
                     best
                 } else {
-                    s.search(best).max(best)
+                    s.search(best, shortest_dists_from_to).max(best)
                 }
             })
             .max(self.score)
@@ -147,13 +150,10 @@ impl<'a> SearchState<'a> {
         self.remaining_minutes < TRAVEL_TIME + OPEN_TIME || self.is_no_more_flows()
     }
 
-    fn next_states(&self) -> Vec<SearchState> {
+    fn next_states(&self, shortest_dists_from_to: &ShortestDistFromTo) -> Vec<SearchState> {
         let mut states = vec![];
         if !self.is_no_more_flows() {
-            let shortest_dists = self
-                .shortest_dists_from_to
-                .get(&self.current_valve)
-                .unwrap();
+            let shortest_dists = shortest_dists_from_to.get(&self.current_valve).unwrap();
 
             for unopened_valve in self.unopened_valves().iter() {
                 let travel_time = shortest_dists.get(unopened_valve).unwrap();
