@@ -41,13 +41,15 @@ pub fn part2(_data: String) -> String {
 }
 
 type ValveLabel = u64;
-type FlowRate = u32;
-type Flows = HashTrieMap<ValveLabel, FlowRate>;
-type Rooms = HashMap<ValveLabel, Room>;
 type Minute = u32;
+type FlowRate = u32;
+
+type Rooms = HashMap<ValveLabel, Room>;
+type PathGraph = Graph<ValveLabel, Minute>;
 type ShortestDistTo = HashMap<ValveLabel, Minute>;
 type ShortestDistFromTo = HashMap<ValveLabel, ShortestDistTo>;
-type PathGraph = Graph<ValveLabel, Minute>;
+
+type Flows = HashTrieMap<ValveLabel, FlowRate>;
 
 fn build_flows(rooms: &Rooms) -> Flows {
     rooms.values().fold(Flows::new(), |acc, room| {
