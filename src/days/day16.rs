@@ -1,7 +1,7 @@
 use rpds::HashTrieMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use nom::{
     branch::alt,
@@ -22,19 +22,18 @@ const TRAVEL_TIME: Minute = 1;
 const NO_FLOW: FlowRate = 0;
 
 pub fn part1(data: String) -> String {
+    let current_valve = hash_valve_label(('A', 'A'));
     let rooms = parse(&data);
 
     let root = SearchState {
         score: NO_FLOW,
-        current_valve: hash_valve_label(('A', 'A')),
+        current_valve,
         flows: build_flows(&rooms),
         remaining_minutes: TOTAL_MINUTES,
-        best_found: Rc::new(RefCell::new(NO_FLOW)),
-        path_graph: Rc::new(build_path_graph(&rooms)),
-        shortest_dists_from_to: Rc::new(RefCell::new(ShortestDistFromTo::new())),
+        shortest_dists_from_to: &build_shortest_from_to(current_valve, &rooms),
     };
 
-    root.search().to_string()
+    root.search(NO_FLOW).to_string()
 }
 
 pub fn part2(_data: String) -> String {
@@ -67,41 +66,62 @@ fn build_path_graph(rooms: &Rooms) -> PathGraph {
     path_graph
 }
 
+fn build_shortest_from_to(initial: ValveLabel, rooms: &Rooms) -> ShortestDistFromTo {
+    let path_graph = build_path_graph(&rooms);
+
+    let mut valves_with_flow: Vec<ValveLabel> = rooms
+        .values()
+        .filter_map(|r| {
+            if r.flow_rate > 0 {
+                Some(r.valve_label)
+            } else {
+                None
+            }
+        })
+        .collect();
+    valves_with_flow.push(initial);
+
+    valves_with_flow.iter().fold(
+        ShortestDistFromTo::new(),
+        |mut shortest_dists_from, from| {
+            shortest_dists_from.insert(*from, path_graph.shortest_paths_from(from));
+            shortest_dists_from
+        },
+    )
+}
+
 #[derive(Clone, Debug)]
-struct SearchState {
+struct SearchState<'a> {
     score: FlowRate,
     current_valve: ValveLabel,
     flows: Flows,
     remaining_minutes: Minute,
-    best_found: Rc<RefCell<FlowRate>>,
-    path_graph: Rc<PathGraph>,
-    shortest_dists_from_to: Rc<RefCell<ShortestDistFromTo>>,
+    shortest_dists_from_to: &'a ShortestDistFromTo,
 }
 
-impl SearchState {
-    fn search(&self) -> FlowRate {
-        if self.reject() {
+impl<'a> SearchState<'a> {
+    fn search(&self, best_found: FlowRate) -> FlowRate {
+        if self.reject(best_found) {
             return self.score;
         }
 
         if self.accept() {
-            let score = self.score;
-            let mut best = self.best_found.borrow_mut();
-            if score > *best {
-                *best = score;
-            }
-            return score;
+            return self.score.max(best_found);
         }
 
         self.next_states()
             .into_iter()
-            .map(|s| s.search())
-            .max()
-            .unwrap_or(NO_FLOW)
+            .fold(best_found, |best, s| {
+                if s.reject(best) {
+                    best
+                } else {
+                    s.search(best).max(best)
+                }
+            })
             .max(self.score)
     }
 
-    fn reject(&self) -> bool {
+    fn reject(&self, best_found: FlowRate) -> bool {
         // if it's impossible to beat the current best score even if we open ALL the remaining valves,
         // then don't bother searching that path.
         // This isn't exhaustive due to not accounting for
@@ -120,7 +140,7 @@ impl SearchState {
 
         let possible_score = self.score + possible_remaining_score;
 
-        possible_score <= *self.best_found.borrow()
+        possible_score <= best_found
     }
 
     fn accept(&self) -> bool {
@@ -130,11 +150,10 @@ impl SearchState {
     fn next_states(&self) -> Vec<SearchState> {
         let mut states = vec![];
         if !self.is_no_more_flows() {
-            let mut shortest_dists_from_to = self.shortest_dists_from_to.borrow_mut();
-
-            let shortest_dists = shortest_dists_from_to
-                .entry(self.current_valve)
-                .or_insert_with(|| self.path_graph.shortest_paths_from(&self.current_valve));
+            let shortest_dists = self
+                .shortest_dists_from_to
+                .get(&self.current_valve)
+                .unwrap();
 
             for unopened_valve in self.unopened_valves().iter() {
                 let travel_time = shortest_dists.get(unopened_valve).unwrap();
