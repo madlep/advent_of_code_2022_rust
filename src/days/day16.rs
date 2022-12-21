@@ -108,7 +108,7 @@ impl SearchState {
         // - whether it is possible to even get to all the valves in remaining time
         // so it may need to do extra work, but it won't skip any possibilities
 
-        let possible_remaining_score = if self.remaining_minutes < 2 {
+        let possible_remaining_score = if self.remaining_minutes < TRAVEL_TIME + OPEN_TIME {
             NO_FLOW
         } else {
             self.flows
