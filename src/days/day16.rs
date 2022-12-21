@@ -46,8 +46,7 @@ type FlowRate = u32;
 
 type Rooms = HashMap<ValveLabel, Room>;
 type PathGraph = Graph<ValveLabel, Minute>;
-type ShortestDistTo = HashMap<ValveLabel, Minute>;
-type ShortestDistFromTo = HashMap<ValveLabel, ShortestDistTo>;
+type ShortestDistFromTo = HashMap<(ValveLabel, ValveLabel), Minute>;
 
 type Flows = HashTrieMap<ValveLabel, FlowRate>;
 
@@ -83,10 +82,15 @@ fn build_shortest_from_to(initial: ValveLabel, rooms: &Rooms) -> ShortestDistFro
         .collect();
     valves_with_flow.push(initial);
 
-    valves_with_flow.iter().fold(
+    valves_with_flow.into_iter().fold(
         ShortestDistFromTo::new(),
         |mut shortest_dists_from, from| {
-            shortest_dists_from.insert(*from, path_graph.shortest_paths_from(from));
+            let shortest_dists_to = path_graph
+                .shortest_paths_from(&from)
+                .into_iter()
+                .map(|(to, dist)| ((from, to), dist));
+
+            shortest_dists_from.extend(shortest_dists_to);
             shortest_dists_from
         },
     )
@@ -148,18 +152,15 @@ impl SearchState {
     fn next_states(&self, shortest_dists_from_to: &ShortestDistFromTo) -> Vec<SearchState> {
         let mut states = vec![];
         if !self.is_no_more_flows() {
-            let shortest_dists = shortest_dists_from_to.get(&self.current_valve).unwrap();
+            for unopened_valve in self.unopened_valves().into_iter() {
+                let travel_time = shortest_dists_from_to
+                    .get(&(self.current_valve, unopened_valve))
+                    .unwrap();
 
-            for unopened_valve in self.unopened_valves().iter() {
-                let travel_time = shortest_dists.get(unopened_valve).unwrap();
-
-                if unopened_valve != &self.current_valve
+                if unopened_valve != self.current_valve
                     && travel_time + OPEN_TIME <= self.remaining_minutes
                 {
-                    states.push(self.go_to_valve_and_open(
-                        *unopened_valve,
-                        *shortest_dists.get(unopened_valve).unwrap(),
-                    ));
+                    states.push(self.go_to_valve_and_open(unopened_valve, *travel_time));
                 }
             }
         }
