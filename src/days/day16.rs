@@ -109,7 +109,7 @@ impl SearchState {
             .flows
             .values()
             .map(|flow| flow * (self.remaining_minutes.max(1) - 1))
-            .sum::<u32>();
+            .sum::<FlowRate>();
 
         let possible_score = self.score + possible_remaining_score;
 
