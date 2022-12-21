@@ -141,6 +141,7 @@ impl SearchState {
 
         states
     }
+
     fn go_to_valve_and_open(&self, valve: ValveLabel, travel_time: Minute) -> Self {
         let flow = self.flows.get(&valve).unwrap();
 
